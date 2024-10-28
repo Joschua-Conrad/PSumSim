@@ -9,13 +9,14 @@ publicly under an open-source license. Currently, it is solely provided
 for the purpose of reviewing the manuscript at-hand. See [license](LICENSE.md).
 
 ## How to Install
-This provides a python package. Using
+This provides a python package. Downloading all files and using
 ```bash
 python3 -m pip install --editable .
 ```
-installs the package and allows all changes in sourcefiles to reflect immediately.
-Remove the `--editable` switch to install the package as any other Python
-package.
+in the saem directory where this README is found installs the package and
+allows all changes in source-files to reflect immediately.
+Remove the `--editable` switch to install the package like any other Python
+package, but you cannot change the provided *.py* files then.
 
 ## How to Use
 After installing, there are several things provided by PSumSim.
