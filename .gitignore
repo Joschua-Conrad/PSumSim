@@ -1,0 +1,10 @@
+#Created during install
+/psumsim.egg-info
+#Created during import
+/psumsim/__pycache__
+#Test Products
+/psumsim_result_test*.json
+/psumsim_progress_test*.txt
+/psumsim_plot_data_*.npz
+#Results from commandline
+/psumsimresults*.json

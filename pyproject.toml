@@ -1,0 +1,73 @@
+#https://packaging.python.org/en/latest/guides/writing-pyproject-toml
+#https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+
+[build-system]
+# required packages during build (not available after build anymore)
+requires = [
+	"setuptools",
+	"wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "psumsim"
+authors = [
+	{name = "Joschua Conrad", email = "32811308+Joschua-Conrad@users.noreply.github.com"}
+]
+description = "Simulating Partial-Sum Quantization in Analog Matrix-Vector Multipliers"
+requires-python = ">=3.6"
+license = {file = "LICENSE.md"}
+keywords = ["neural networks", "matrix-vector multiplication", "stochastic modeling", "numpy", "simulation"]
+classifiers = [
+	"Environment :: Console",
+	"Intended Audience :: Science/Research",
+	"License :: Other/Proprietary License",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python :: 3 :: Only",
+	"Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+	"Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dynamic = ["version", "readme"]
+dependencies = [
+	"numpy",
+	"scipy",
+	"matplotlib",
+	"importlib-resources",
+	"progressbar2",
+]
+
+[project.optional-dependencies]
+docs = [
+	# Sphinx 3.1.0 introduced most autodoc features
+	"sphinx>=3.1.0",
+	# Convert commandline help into docs
+	"sphinx-argparse",
+	# Support for markdown
+	"myst-parser",
+	# HTML theme
+	"sphinx-rtd-theme",
+]
+
+test = [
+	"pytest",
+]
+
+[project.urls]
+Repository = "https://github.com/Joschua-Conrad/PSumSim"
+Download = "https://github.com/Joschua-Conrad/PSumSim/archive/refs/heads/main.zip"
+
+[project.scripts]
+psumsim = "psumsim.experiments:main"
+psumsim_test = "psumsim.test:main"
+
+[tool.setuptools]
+packages = ["psumsim"]
+#We later want to specify that explicitly
+include-package-data = false
+
+[tool.setuptools.package-data]
+psumsim = ["VERSION.txt"]
+
+[tool.setuptools.dynamic]
+readme = {file = "README.md"}
+version = {file = "psumsim/VERSION.txt"}
