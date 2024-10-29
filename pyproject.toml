@@ -79,7 +79,8 @@ empty_parameter_set_mark = "xfail"
 python_classes = "test_*"
 python_files = "test*.py"
 python_functions = "test_*"
-testpaths = "psumsim/**"
+#__pycache__ is not allowed to be discovered here
+testpaths = "psumsim/*"
 #Only keep tmpfiles for failed tests
 tmp_path_retention_policy = "failed"
 #If a test with expected failure succeeds, the test fails

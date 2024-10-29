@@ -7,6 +7,8 @@ import pathlib as pl
 import json
 import math
 import pathlib
+import pytest
+import os
 
 from psumsim.array import normalizeAxes, getValueAlongAxis, padToEqualShape
 from psumsim.hist import histlenToBincount, bincountToHistlen, packHist, packStatistic, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
@@ -3372,7 +3374,13 @@ class test_Psum_Quantization(ut.TestCase):
 		)
 		
 def main():
-	ut.main(verbosity=2, module="psumsim.test")
+	oldcwd = os.getcwd()
+	pytestdir = pathlib.Path(__file__).parent.parent
+	try:
+		os.chdir(pytestdir)
+		pytest.main()
+	finally:
+		os.chdir(oldcwd)
 
 
 if __name__ == "__main__":
