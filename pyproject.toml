@@ -50,6 +50,7 @@ docs = [
 
 test = [
 	"pytest",
+	"pytest-subtests",
 ]
 
 [project.urls]
@@ -85,3 +86,6 @@ testpaths = "psumsim/*"
 tmp_path_retention_policy = "failed"
 #If a test with expected failure succeeds, the test fails
 xfail_strict = true
+required_plugins = [
+	"pytest-subtests",
+]
