@@ -55,7 +55,7 @@ and again possibly ommit `--editable` just like in
 [Install Instructions](#how-to-install). Then, run `psumsim_test`.
 Under the hood, *pytest* is used. Possible commandline arguments are descibed
 [here](https://docs.pytest.org/en/stable/how-to/usage.html). Common usage
-is to run a specific test case and exist immediately if that one fails,
+is to run a specific test case and exit immediately if that one fails,
 as run e.g. by `psumsim_test -x -k "test_optimumClippingCriterion"` for the
 test {any}`test_optimumClippingCriterion`.
 
