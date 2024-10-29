@@ -4,8 +4,7 @@
 /psumsim/__pycache__
 #Test Products
 /.pytest_cache
-/psumsim_result_test*.json
-/psumsim_progress_test*.txt
-/psumsim_plot_data_*.npz
 #Results from commandline
 /psumsimresults*.json
+#Virtual env
+/venv
