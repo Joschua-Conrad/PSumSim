@@ -163,6 +163,10 @@ autosummary_generate = True
 def skip_member(app, what, name, obj, skip, options):
 	badnames = (
 			"__all__",
+			"__annotations__",
+			"__module__",
+			"__weakref__",
+			"__dict__",
 	)
 	
 	if name in badnames:
@@ -206,6 +210,7 @@ intersphinx_mapping = {
 		'numpy': ('https://numpy.org/doc/stable/', None),
 		'scipy': ('https://docs.scipy.org/doc/scipy/', None),
 		'matplotlib': ('https://matplotlib.org/stable/', None),
+		'pytest' : ('https://docs.pytest.org/en/latest/', None),
 }
 
 # Define named link targets here
