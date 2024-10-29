@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "psumsim"
 authors = [
-	{name = "Joschua Conrad", email = "32811308+Joschua-Conrad@users.noreply.github.com"}
+	{name = "Joschua Conrad", email = "joschua.conrad@uni-ulm.de"}
 ]
 description = "Simulating Partial-Sum Quantization in Analog Matrix-Vector Multipliers"
 requires-python = ">=3.6"

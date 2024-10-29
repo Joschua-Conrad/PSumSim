@@ -1,3 +1,4 @@
+(infolicense)=
 # License
 **All Righs Reserved**
 

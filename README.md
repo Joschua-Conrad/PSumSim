@@ -1,13 +1,18 @@
-# PSumSim: A Simulator for Partial-Sum Quantization in Analog Matrix-Vector Multipliers
+# Readme
+
+**PSumSim: A Simulator for Partial-Sum Quantization in Analog Matrix-Vector Multipliers**
+
 This project includes a Python package useful for simulating partial-sum
 quantization in matrix-vector multipliers (MVMs) using a histogram-based
 data format.
 
+(readmereviewers)=
 ## Information for Reviewers
 In case of acceptance of the provided manuscript, this repository is made available
 publicly under an open-source license. Currently, it is solely provided
-for the purpose of reviewing the manuscript at-hand. See [license](LICENSE.md).
+for the purpose of reviewing the manuscript at-hand. See {std:ref}`infolicense`.
 
+(readmeinstall)=
 ## How to Install
 This provides a python package. Downloading all files and using
 ```bash
@@ -40,6 +45,9 @@ psumsim -j 4 -b 0.1 -e 0.2
 to run 10% of all experiments with 4 CPU jobs. Several of these calls can be
 used to keep the simulation machine busy.
 
+See {std:ref}`commandlineinterface` for full documentation or simply call
+`psumsim --help`.
+
 ### As a Package
 Check `psumsim.simulation.simulateMvm`, which basically is what is called for
 each simulated experiment. Use this in your own Python script to get histograms
@@ -52,13 +60,31 @@ running
 python3 -m pip install --editable ".[test]"
 ```
 and again possibly ommit `--editable` just like in
-[Install Instructions](#how-to-install). Then, run `psumsim_test`.
+{std:ref}`readmeinstall`. Then, run `psumsim_test`.
 Under the hood, *pytest* is used. Possible commandline arguments are descibed
 [here](https://docs.pytest.org/en/stable/how-to/usage.html). Common usage
 is to run a specific test case and exit immediately if that one fails,
 as run e.g. by `psumsim_test -x -k "test_optimumClippingCriterion"` for the
 test {any}`test_optimumClippingCriterion`.
 
+### Docs
+To build the documentation website, first install dependencies using
+```bash
+python3 -m pip install --editable ".[docs]"
+```
+and again possibly ommit `--editable` just like in
+{std:ref}`readmeinstall`. Then, run
+```bash
+sphinx-build -b html -W -E doc/source doc/build
+```
+in the main directory. After the command completes, you'll find the documentation
+as a website *docs/build/index.html*.
+
+(readmecite)=
+## How to Cite
+Will be filled after review.
+
+(readmeacknowledge)=
 ## Acknowledgment
 This work was funded by the *German National Science Foundation (DFG)* under
 grant number *BE 7212/7-1 | OR 245/19-1*. Furthermore, the authors acknowledge
@@ -67,7 +93,7 @@ support by the state of Baden-Württemberg through bwHPC.
 ## ToDos for Publishing After Review
 
 - [ ] Update license
-- [ ] Add how-to-cite
+- [ ] Fill {std:ref}`readmecite`
 - [ ] Make repository public
 - [ ] Update repository link in manuscript
-- [ ] Remove [Information for Reviewers](#information-for-reviewers)
+- [ ] Remove {std:ref}`readmereviewers`

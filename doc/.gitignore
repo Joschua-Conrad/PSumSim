@@ -1,0 +1,5 @@
+#Ignore all doc build products.
+#The build folder is auto created and does not need a .empty file
+#and can be fuly ignored.
+/build
+/source/apidoc/*
