@@ -20,6 +20,36 @@ class test_Psum_Quantization(ut.TestCase):
 	"""Do plots and analysis on psum quantization.
 	
 	"""
+	
+	#Factor for tolerated amplitude error
+	RELATIVE_CONFIDENCE_RELAX = 10.
+	#WHich share of experiments is ok to fail. Because we possibly compute
+	#quite small histograms and still want to allow an integer number of
+	#failed bins, we make this criterion weak and in return the relative
+	#relax more strong.
+	RELATIVE_SAMPLE_CONFIDENCE = 0.1
+		
+	@classmethod
+	def statStocCompare(cls, stat, stoc, stataxis, msg=None):
+		stataxis, = normalizeAxes(axes=stataxis, referencendim=stat.ndim)
+		#Find over how many elements we average, as that influences assertion
+		#precision
+		averageover = stat.shape[stataxis]
+		#Average the bits along statistics axis to get probabilities
+		statavg = packStatistic(
+				topack=stat,
+				axis=stataxis,
+				keepdims=True,
+		)
+		#Compute absolute deviation in probability
+		deviation = np.abs(statavg - stoc)		
+		#That probability shall not be too large and we expect
+		#a more accurate number the more experimetns we run.
+		failpos = deviation > (1. / math.sqrt(averageover) * cls.RELATIVE_CONFIDENCE_RELAX)
+		#Get the ratio of failed experiments
+		failrate = np.average(failpos, axis=None, keepdims=False)
+		#And limit that
+		assert failrate <= cls.RELATIVE_SAMPLE_CONFIDENCE, msg
 		
 	def test_debugSimulation(self):
 		
@@ -2565,19 +2595,8 @@ class test_Psum_Quantization(ut.TestCase):
 						)
 						
 	
+class BaseTestCase:
 
-class test_pytest():
-	
-	#Factor for tolerated amplitude error
-	RELATIVE_CONFIDENCE_RELAX = 10.
-	#WHich share of experiments is ok to fail. Because we possibly compute
-	#quite small histograms and still want to allow an integer number of
-	#failed bins, we make this criterion weak and in return the relative
-	#relax more strong.
-	RELATIVE_SAMPLE_CONFIDENCE = 0.1
-	#Where to store result files
-	DATA_PATH = pl.Path()
-			
 	@classmethod
 	def concludeFigure(cls, fig):
 		#Contextual import, because this one takes long
@@ -2585,29 +2604,357 @@ class test_pytest():
 		plt.close(fig)
 		
 	@classmethod
-	def statStocCompare(cls, stat, stoc, stataxis, msg=None):
-		stataxis, = normalizeAxes(axes=stataxis, referencendim=stat.ndim)
-		#Find over how many elements we average, as that influences assertion
-		#precision
-		averageover = stat.shape[stataxis]
-		#Average the bits along statistics axis to get probabilities
-		statavg = packStatistic(
-				topack=stat,
-				axis=stataxis,
-				keepdims=True,
+	@pytest.fixture(scope="module")
+	def tmp_numpy(cls, tmp_path_factory):
+		return tmp_path_factory.mktemp(basename="Numpy")
+	
+	@classmethod
+	@pytest.fixture(scope="module")
+	def tmp_json(cls, tmp_path_factory):
+		return tmp_path_factory.mktemp(basename="Json")
+
+class test_unquantQuantComparisonPlot(BaseTestCase):
+	
+	#Test comparing quantized and unquantized simulation including
+	#applyCliplimitStddevAsFixedFrom
+	#equalizeQuantizedUnquantized
+	#computeSqnr
+	
+	ASSERT_SNR_TOL = 1e-1
+	
+	#Groups for reference
+	refgroups=(
+			dict(
+					reduceaxes=(MAC_AXIS,),
+					chunksizes=(8,),
+					mergevalues=None,
+					cliplimitstddev=None,
+					cliplimitfixed=None,
+					positionweights=None,
+					positionweightsonehot=None,
+					disablereducecarries=None,
+					chunkoffsetsteps=None,
+					histaxis=HIST_AXIS,
+					docreatehistaxis=True,
+					mergeeffortmodel=None,
+					allowoptim=True,
+			),
+			dict(
+					reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
+					chunksizes=None,
+					mergevalues=None,
+					cliplimitstddev=None,
+					cliplimitfixed=None,
+					positionweights=("hist", "hist",),
+					positionweightsonehot=None,
+					disablereducecarries=None,
+					chunkoffsetsteps=None,
+					histaxis=HIST_AXIS,
+					docreatehistaxis=False,
+					mergeeffortmodel="analog",
+					allowoptim=True,
+			),
+			dict(
+					reduceaxes=(-2,),
+					chunksizes=None,
+					mergevalues=None,
+					cliplimitstddev=None,
+					cliplimitfixed=None,
+					positionweights=None,
+					positionweightsonehot=None,
+					disablereducecarries=None,
+					chunkoffsetsteps=None,
+					histaxis=HIST_AXIS,
+					docreatehistaxis=False,
+					mergeeffortmodel=None,
+					allowoptim=True,
+			),
+	)
+	
+	#Common arguments for simulateMvm
+	commonargs = dict(
+			selfcheckindummy=True,
+			activationlevels=7,
+			weightlevels=3,
+			nummacs=32,
+			randombehave="norm",
+			randomclips=(2., 2.,),
+	)
+	
+	#Whether quantization is added in final or intermediate stage.
+	#Also give some confidence relax. In general, having a cliplimit
+	#at the interm stage is problematic,
+	#because teh cliplimit first introduces a gain varying between stat
+	#and stoc and that moves where quantize levels sit at the output.
+	#Also remember if the raw data is stored to file.
+	finalintermcases = (
+			#Quantize finalize, but with cliplimit in intern stage
+			("finalclipbefore", 1., True,),
+			#Quantize only in final group
+			("final", 1., True),
+			#Quantize only in final group, but without cliplimit
+			("finalunclipped", 1., True),
+			#Quantize in intermediate group and final group
+			("intermediate", 2., False),
+			#Quantize in intermediate group only
+			("intermediateonly", 100., False),
+	)
+	
+	#Remember statisticdim and name of a run und then do the same stuff
+	#statistic and stochastic. Also remember whether stochastic run
+	#should update cliplimit from stddev to fixed to grant same hist axes.
+	#But well, statistic computation just gives a slightly different stddev
+	#and if we correct that we no more have the same SNR. So rather keep it.
+	#Also remember if data is stored to file
+	stocstatcases = (
+			(None, "Stochastic", False, True,),
+			(10000, "Statistic", False, False,),
+	)
+
+	@classmethod
+	@pytest.fixture(scope="class")
+	def unquantQuantComparisonPlotState(cls, tmp_numpy):
+		snrs = dict()
+		storearrays = dict()
+		lastfinalinterm = [None]
+		unquantgroups = list()
+		quantgroups = list()
+		unquantgroupsoriginal = list()
+		quantgroupsoriginal = list()
+		cliplimitsapplied = [False]
+		
+		yield snrs, storearrays, lastfinalinterm, unquantgroups, quantgroups, unquantgroupsoriginal, quantgroupsoriginal, cliplimitsapplied
+		
+		#Export plots
+		np.savez(
+				file=(tmp_numpy / "psumsim_plot_data_quant_unquant"),
+				**storearrays,
 		)
-		#Compute absolute deviation in probability
-		deviation = np.abs(statavg - stoc)		
-		#That probability shall not be too large and we expect
-		#a more accurate number the more experimetns we run.
-		failpos = deviation > (1. / math.sqrt(averageover) * cls.RELATIVE_CONFIDENCE_RELAX)
-		#Get the ratio of failed experiments
-		failrate = np.average(failpos, axis=None, keepdims=False)
-		#And limit that
-		assert failrate <= cls.RELATIVE_SAMPLE_CONFIDENCE, msg
+		
+		#Check that computed SNRs between statstoccases are similar
+		for finalintermconfidencerelax in cls.finalintermcases:
+			finalinterm, confidencerelax, _ = finalintermconfidencerelax
+			snrsfinalinterm = snrs[finalinterm]
+			#Do not compare across aded final or interm quantization, there the
+			#values will differ
+			refsnr = None
+			for casename, snr in snrsfinalinterm.items():
+				snr = np.squeeze(snr).item()
+				if refsnr is None:
+					refsnr = snr
+				else:
+					#print("{:.3f}, {:.3f}".format(refsnr, snr))
+					snrdeviation = abs(snr - refsnr)
+					assert snrdeviation < \
+							(cls.ASSERT_SNR_TOL * confidencerelax), \
+							f"SNR deviates too much from reference value in {finalinterm} {casename}"
+								
+	@classmethod
+	def pytest_generate_tests(cls, metafunc):
+		if "unquantQuantComparisonPlotCase" in metafunc.fixturenames:
+			cases = itertools.product(cls.finalintermcases, cls.stocstatcases)
+			cases, ids = itertools.tee(cases)
+			ids = (str((i[0], j[1])) for i, j in ids)
+			metafunc.parametrize("unquantQuantComparisonPlotCase", cases, ids=ids)
 		
 	@classmethod
-	def test_statStocComparisonPlot(cls, tmp_path):
+	def test_unquantQuantComparisonPlot(cls, subtests, unquantQuantComparisonPlotState, unquantQuantComparisonPlotCase):
+		
+		
+		#Contextual import, because this one takes long
+		from matplotlib import pyplot as plt
+		
+		snrs, storearrays, lastfinalinterm, unquantgroups, quantgroups, unquantgroupsoriginal, quantgroupsoriginal, cliplimitsapplied = unquantQuantComparisonPlotState
+		finalintermconfidencerelax, statstoc = unquantQuantComparisonPlotCase
+		finalinterm, confidencerelax, storefinalinterm = finalintermconfidencerelax
+		statisticdim, casename, updateunquantgroups, storestatstoc = statstoc
+		
+		#Re-compute groups, if we switched between quantizing final or
+		#intermediate
+		if finalinterm != lastfinalinterm[0]:
+			#Unquantized groups in principle are the references
+			unquantgroups.clear()
+			unquantgroups.extend(copy.deepcopy(cls.refgroups))
+			#When adding intermediate quant, the final quant exists in both
+			if finalinterm == "intermediate":
+				unquantgroups[-1]["cliplimitstddev"] = 3
+				unquantgroups[-1]["mergevalues"] = -7
+			#The later runs can update the unquantizedgroups. Store original one
+			#here.
+			unquantgroupsoriginal.clear()
+			unquantgroupsoriginal.extend(copy.deepcopy(unquantgroups))
+			
+			#THe quantized run now introduces even more quant
+			quantgroups.clear()
+			quantgroups.extend(copy.deepcopy(unquantgroups))
+			if finalinterm in ("intermediate", "intermediateonly",):
+				quantgroups[-2]["cliplimitstddev"] = 3
+				quantgroups[-2]["mergevalues"] = -3
+			#In final quant, we add the cliplimit also to the reference, as
+			#plots look nice then
+			elif finalinterm == "finalclipbefore":
+				unquantgroups[-1]["cliplimitstddev"] = 3
+				quantgroups[-1]["cliplimitstddev"] = 3
+				quantgroups[-1]["mergevalues"] = -7
+			#There is also a version which even adds cliplimit just finally
+			elif finalinterm == "final":
+				quantgroups[-1]["cliplimitstddev"] = 3
+				quantgroups[-1]["mergevalues"] = -7
+			#And a version adding final quant, but no cliplimit
+			elif finalinterm == "finalunclipped":
+				quantgroups[-1]["mergevalues"] = -7
+			
+			quantgroupsoriginal.clear()
+			quantgroupsoriginal.extend(copy.deepcopy(quantgroups))
+			
+			#Is set after one statstoccase changed the groups with known
+			#cliplimits
+			cliplimitsapplied[0] = False
+				
+		lastfinalinterm[0] = finalinterm
+
+
+		#Centrally defined, as they are needed in multiple spots.
+		dostatistic = statisticdim is not None
+		dostatisticdummy = False
+		
+		caseargs = dict(
+				statisticdim=statisticdim,
+				dostatisticdummy=dostatisticdummy,
+		)
+		
+		figname = f"Unquant_Quant_Comparison_{finalinterm}_{casename}"
+		fig = plt.figure(num=figname)
+	
+		#Unquantized experiment
+		retunquant = simulateMvm(
+				groups=unquantgroups,
+				**cls.commonargs,
+				**caseargs,
+		)
+		
+		#Create new group, where cliplimitfixed is set from stochastic experiment,
+		#to have the two comparable. But only, if the quantized experiment
+		#does not introduce the cliplimitstddev. Do not compare
+		#against unquantgroups, because that maybe got a cliplimitfixed
+		#instead of cliplimitstddev above.
+		onlyatindices = ((i["cliplimitstddev"] == j["cliplimitstddev"]) and (i["cliplimitstddev"] is not None) for i, j in zip(unquantgroupsoriginal, quantgroupsoriginal))
+		onlyatindices = enumerate(onlyatindices)
+		onlyatindices = [i for i, j in onlyatindices if j]
+		#If we would equalize the last group, but also introduce
+		#quantization in intermediate stage, skip the equalization.
+		#Because the intermediate quantization will scramble up
+		#stddev, totally, such that the kep cliplimitfixed makes no sense
+		if (2 in onlyatindices) and (quantgroupsoriginal[1]["mergevalues"] != unquantgroupsoriginal[1]["mergevalues"]):
+			onlyatindices.remove(2)
+		#If an earlier run already aplied cliplimitfixed, do not do it
+		#here.
+		if cliplimitsapplied[0]:
+			onlyatindices = tuple()
+		
+
+		cliplimitfixedgroups = applyCliplimitStddevAsFixedFrom(
+				groups=quantgroups,
+				fromreturn=retunquant,
+				onlyatindices=onlyatindices,
+		)
+
+		#Run quantized experiment
+		retquant = simulateMvm(
+				groups=cliplimitfixedgroups,
+				**cls.commonargs,
+				**caseargs,
+		)
+		
+		#Use method, which equalizes the two histograms to same length.
+		resunquant, resquant = equalizeQuantizedUnquantized(
+				retunquantized=retunquant,
+				retquantized=retquant,
+				runidx=-1,
+				histaxis=HIST_AXIS,
+				stataxis=STAT_AXIS,
+				dostatistic=dostatistic,
+				dostatisticdummy=dostatisticdummy,
+		)
+		
+		#Get a refbincount derived from maxhistvalue of unquantized experiment.
+		#The unquantized one has more bins and the equalizer equalized the
+		#quantized one to that.
+		refhistlen = np.squeeze(retunquant["maxhistvalues"][-1]).item()
+		refbincount = histlenToBincount(histlen=refhistlen)
+		
+		#Get SNR and bin-wise qauntization error powers
+		snr, probabilityerror, magnitudeerror, squarederror = computeSqnr(
+				unquantized=resunquant,
+				quantized=resquant,
+				histaxis=HIST_AXIS,
+				stataxis=STAT_AXIS,
+				bincount=refbincount,
+				dostatistic=dostatistic,
+				dostatisticdummy=dostatisticdummy,
+				errordtype="float",
+		)
+		
+		#Remember snr for later assertion
+		snrsfinalinterm = snrs.setdefault(finalinterm, dict())
+		snrsfinalinterm[casename] = snr
+		
+		#Remember arrays to store in file
+		if storestatstoc and storefinalinterm:
+			storekeypattern = f"{casename}_{finalinterm}_{{}}"
+			storearrays[storekeypattern.format("unquant")] = resunquant
+			storearrays[storekeypattern.format("quant")] = resquant
+			storearrays[storekeypattern.format("probabilityerror")] = probabilityerror
+			storearrays[storekeypattern.format("magnitudeerror")] = magnitudeerror
+		
+		#Possibyl upadte the groups with a cliplimitfixed, such
+		#that statistic and stochastic plot use the same stuff here
+		if updateunquantgroups:
+			unquantgroups = applyCliplimitStddevAsFixedFrom(
+					groups=unquantgroups,
+					fromreturn=retunquant,
+					onlyatindices=None,
+			)
+			quantgroups = applyCliplimitStddevAsFixedFrom(
+					groups=quantgroups,
+					fromreturn=retquant,
+					onlyatindices=None,
+			)
+			#Remember that cliplimit was applied
+			cliplimitsapplied[0] = True
+		
+		plotcases = [
+				(resunquant, "Unquantized",),
+				(resquant, "Quantized",),
+				(probabilityerror, "Probability Error",),
+				(magnitudeerror, "Magnitude Error",),
+				(squarederror, "Squared Error",),
+		]
+		axes = fig.subplots(nrows=len(plotcases), sharex=True, squeeze=False)
+		axes = np.squeeze(axes, axis=1)
+		axesiter = iter(axes)
+		
+		for res, label in plotcases:
+			ax = next(axesiter)
+			islast = ax is axes[-1]
+			plotHist(
+					hist=res,
+					histaxis=HIST_AXIS,
+					stataxis=STAT_AXIS,
+					refbincount=refbincount,
+					axorfigname=ax,
+					xlabel=((islast or None) and "Result Value"),
+					ylabel=label,
+					label=label,
+			)
+		
+		cls.concludeFigure(fig=fig)
+		
+
+		
+class test_misc(BaseTestCase):
+	@classmethod
+	def test_statStocComparisonPlot(cls, tmp_numpy):
 		
 		#Test and plot same experiment, but once stochastic and once statistic.
 		#Just check that it does not crash.
@@ -2744,340 +3091,22 @@ class test_pytest():
 		
 		#Export plots
 		np.savez(
-				file=(tmp_path / "psumsim_plot_data_stat_stoc"),
+				file=(tmp_numpy / "psumsim_plot_data_stat_stoc"),
 				**storearrays,
 		)
-		
-	@classmethod
-	def test_unquantQuantComparisonPlot(cls, subtests, tmp_path):
-		
-		#Contextual import, because this one takes long
-		from matplotlib import pyplot as plt
-		
-		#Test comparing quantized and unquantized simulation including
-		#applyCliplimitStddevAsFixedFrom
-		#equalizeQuantizedUnquantized
-		#computeSqnr
-		
-		ASSERT_SNR_TOL = 1e-1
-		
-		#Groups for reference
-		refgroups=(
-				dict(
-						reduceaxes=(MAC_AXIS,),
-						chunksizes=(8,),
-						mergevalues=None,
-						cliplimitstddev=None,
-						cliplimitfixed=None,
-						positionweights=None,
-						positionweightsonehot=None,
-						disablereducecarries=None,
-						chunkoffsetsteps=None,
-						histaxis=HIST_AXIS,
-						docreatehistaxis=True,
-						mergeeffortmodel=None,
-						allowoptim=True,
-				),
-				dict(
-						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
-						mergevalues=None,
-						cliplimitstddev=None,
-						cliplimitfixed=None,
-						positionweights=("hist", "hist",),
-						positionweightsonehot=None,
-						disablereducecarries=None,
-						chunkoffsetsteps=None,
-						histaxis=HIST_AXIS,
-						docreatehistaxis=False,
-						mergeeffortmodel="analog",
-						allowoptim=True,
-				),
-				dict(
-						reduceaxes=(-2,),
-						chunksizes=None,
-						mergevalues=None,
-						cliplimitstddev=None,
-						cliplimitfixed=None,
-						positionweights=None,
-						positionweightsonehot=None,
-						disablereducecarries=None,
-						chunkoffsetsteps=None,
-						histaxis=HIST_AXIS,
-						docreatehistaxis=False,
-						mergeeffortmodel=None,
-						allowoptim=True,
-				),
-		)
-		
-		#Common arguments for simulateMvm
-		commonargs = dict(
-				selfcheckindummy=True,
-				activationlevels=7,
-				weightlevels=3,
-				nummacs=32,
-				randombehave="norm",
-				randomclips=(2., 2.,),
-		)
-		
-		#Whether quantization is added in final or intermediate stage.
-		#Also give some confidence relax. In general, having a cliplimit
-		#at the interm stage is problematic,
-		#because teh cliplimit first introduces a gain varying between stat
-		#and stoc and that moves where quantize levels sit at the output.
-		#Also remember if the raw data is stored to file.
-		finalintermcases = (
-				#Quantize finalize, but with cliplimit in intern stage
-				("finalclipbefore", 1., True,),
-				#Quantize only in final group
-				("final", 1., True),
-				#Quantize only in final group, but without cliplimit
-				("finalunclipped", 1., True),
-				#Quantize in intermediate group and final group
-				("intermediate", 2., False),
-				#Quantize in intermediate group only
-				("intermediateonly", 100., False),
-		)
-		
-		#Remember statisticdim and name of a run und then do the same stuff
-		#statistic and stochastic. Also remember whether stochastic run
-		#should update cliplimit from stddev to fixed to grant same hist axes.
-		#But well, statistic computation just gives a slightly different stddev
-		#and if we correct that we no more have the same SNR. So rather keep it.
-		#Also remember if data is stored to file
-		stocstatcases = (
-				(None, "Stochastic", False, True,),
-				(10000, "Statistic", False, False,),
-		)
-		
-		cases = itertools.product(finalintermcases, stocstatcases)
-		
-		#Gather SNRs here for asertion against each other
-		snrs = dict()
-		
-		#Gather data to store to file here
-		storearrays = dict()
-		
-		lastfinalinterm = None
-		for finalintermconfidencerelax, statstoc in cases:
-			finalinterm, confidencerelax, storefinalinterm = finalintermconfidencerelax
-			statisticdim, casename, updateunquantgroups, storestatstoc = statstoc
-			
-			#Re-compute groups, if we switched between quantizing final or
-			#intermediate
-			if finalinterm != lastfinalinterm:
-				#Unquantized groups in principle are the references
-				unquantgroups = copy.deepcopy(refgroups)
-				#When adding intermediate quant, the final quant exists in both
-				if finalinterm == "intermediate":
-					unquantgroups[-1]["cliplimitstddev"] = 3
-					unquantgroups[-1]["mergevalues"] = -7
-				#The later runs can update the unquantizedgroups. Store original one
-				#here.
-				unquantgroupsoriginal = unquantgroups
-				
-				#THe quantized run now introduces even more quant
-				quantgroups = copy.deepcopy(unquantgroups)
-				if finalinterm in ("intermediate", "intermediateonly",):
-					quantgroups[-2]["cliplimitstddev"] = 3
-					quantgroups[-2]["mergevalues"] = -3
-				#In final quant, we add the cliplimit also to the reference, as
-				#plots look nice then
-				elif finalinterm == "finalclipbefore":
-					unquantgroups[-1]["cliplimitstddev"] = 3
-					quantgroups[-1]["cliplimitstddev"] = 3
-					quantgroups[-1]["mergevalues"] = -7
-				#There is also a version which even adds cliplimit just finally
-				elif finalinterm == "final":
-					quantgroups[-1]["cliplimitstddev"] = 3
-					quantgroups[-1]["mergevalues"] = -7
-				#And a version adding final quant, but no cliplimit
-				elif finalinterm == "finalunclipped":
-					quantgroups[-1]["mergevalues"] = -7
-					
-				quantgroupsoriginal = quantgroups
-				
-				#Is set after one statstoccase changed the groups with known
-				#cliplimits
-				cliplimitsapplied = False
-					
-			lastfinalinterm = finalinterm
-			
-			
-			with subtests.test(finalinterm=finalinterm, casename=casename):
 	
-
-				#Centrally defined, as they are needed in multiple spots.
-				dostatistic = statisticdim is not None
-				dostatisticdummy = False
-				
-				caseargs = dict(
-						statisticdim=statisticdim,
-						dostatisticdummy=dostatisticdummy,
-				)
-				
-				figname = f"Unquant_Quant_Comparison_{finalinterm}_{casename}"
-				fig = plt.figure(num=figname)
-			
-				#Unquantized experiment
-				retunquant = simulateMvm(
-						groups=unquantgroups,
-						**commonargs,
-						**caseargs,
-				)
-				
-				#Create new group, where cliplimitfixed is set from stochastic experiment,
-				#to have the two comparable. But only, if the quantized experiment
-				#does not introduce the cliplimitstddev. Do not compare
-				#against unquantgroups, because that maybe got a cliplimitfixed
-				#instead of cliplimitstddev above.
-				onlyatindices = ((i["cliplimitstddev"] == j["cliplimitstddev"]) and (i["cliplimitstddev"] is not None) for i, j in zip(unquantgroupsoriginal, quantgroupsoriginal))
-				onlyatindices = enumerate(onlyatindices)
-				onlyatindices = [i for i, j in onlyatindices if j]
-				#If we would equalize the last group, but also introduce
-				#quantization in intermediate stage, skip the equalization.
-				#Because the intermediate quantization will scramble up
-				#stddev, totally, such that the kep cliplimitfixed makes no sense
-				if (2 in onlyatindices) and (quantgroupsoriginal[1]["mergevalues"] != unquantgroupsoriginal[1]["mergevalues"]):
-					onlyatindices.remove(2)
-				#If an earlier run already aplied cliplimitfixed, do not do it
-				#here.
-				if cliplimitsapplied:
-					onlyatindices = tuple()
-				
-
-				cliplimitfixedgroups = applyCliplimitStddevAsFixedFrom(
-						groups=quantgroups,
-						fromreturn=retunquant,
-						onlyatindices=onlyatindices,
-				)
-
-				#Run quantized experiment
-				retquant = simulateMvm(
-						groups=cliplimitfixedgroups,
-						**commonargs,
-						**caseargs,
-				)
-				
-				#Use method, which equalizes the two histograms to same length.
-				resunquant, resquant = equalizeQuantizedUnquantized(
-						retunquantized=retunquant,
-						retquantized=retquant,
-						runidx=-1,
-						histaxis=HIST_AXIS,
-						stataxis=STAT_AXIS,
-						dostatistic=dostatistic,
-						dostatisticdummy=dostatisticdummy,
-				)
-				
-				#Get a refbincount derived from maxhistvalue of unquantized experiment.
-				#The unquantized one has more bins and the equalizer equalized the
-				#quantized one to that.
-				refhistlen = np.squeeze(retunquant["maxhistvalues"][-1]).item()
-				refbincount = histlenToBincount(histlen=refhistlen)
-				
-				#Get SNR and bin-wise qauntization error powers
-				snr, probabilityerror, magnitudeerror, squarederror = computeSqnr(
-						unquantized=resunquant,
-						quantized=resquant,
-						histaxis=HIST_AXIS,
-						stataxis=STAT_AXIS,
-						bincount=refbincount,
-						dostatistic=dostatistic,
-						dostatisticdummy=dostatisticdummy,
-						errordtype="float",
-				)
-				
-				#Remember snr for later assertion
-				snrsfinalinterm = snrs.setdefault(finalinterm, dict())
-				snrsfinalinterm[casename] = snr
-				
-				#Remember arrays to store in file
-				if storestatstoc and storefinalinterm:
-					storekeypattern = f"{casename}_{finalinterm}_{{}}"
-					storearrays[storekeypattern.format("unquant")] = resunquant
-					storearrays[storekeypattern.format("quant")] = resquant
-					storearrays[storekeypattern.format("probabilityerror")] = probabilityerror
-					storearrays[storekeypattern.format("magnitudeerror")] = magnitudeerror
-				
-				#Possibyl upadte the groups with a cliplimitfixed, such
-				#that statistic and stochastic plot use the same stuff here
-				if updateunquantgroups:
-					unquantgroups = applyCliplimitStddevAsFixedFrom(
-							groups=unquantgroups,
-							fromreturn=retunquant,
-							onlyatindices=None,
-					)
-					quantgroups = applyCliplimitStddevAsFixedFrom(
-							groups=quantgroups,
-							fromreturn=retquant,
-							onlyatindices=None,
-					)
-					#Remember that cliplimit was applied
-					cliplimitsapplied = True
-				
-				plotcases = [
-						(resunquant, "Unquantized",),
-						(resquant, "Quantized",),
-						(probabilityerror, "Probability Error",),
-						(magnitudeerror, "Magnitude Error",),
-						(squarederror, "Squared Error",),
-				]
-				axes = fig.subplots(nrows=len(plotcases), sharex=True, squeeze=False)
-				axes = np.squeeze(axes, axis=1)
-				axesiter = iter(axes)
-				
-				for res, label in plotcases:
-					ax = next(axesiter)
-					islast = ax is axes[-1]
-					plotHist(
-							hist=res,
-							histaxis=HIST_AXIS,
-							stataxis=STAT_AXIS,
-							refbincount=refbincount,
-							axorfigname=ax,
-							xlabel=((islast or None) and "Result Value"),
-							ylabel=label,
-							label=label,
-					)
-				
-				cls.concludeFigure(fig=fig)
-				
-		#Export plots
-		np.savez(
-				file=(tmp_path / "psumsim_plot_data_quant_unquant"),
-				**storearrays,
-		)
-		
-		#Check that computed SNRs between statstoccases are similar
-		for finalintermconfidencerelax in finalintermcases:
-			finalinterm, confidencerelax, _ = finalintermconfidencerelax
-			snrsfinalinterm = snrs[finalinterm]
-			#Do not compare across aded final or interm quantization, there the
-			#values will differ
-			refsnr = None
-			for casename, snr in snrsfinalinterm.items():
-				with subtests.test(finalinterm=finalinterm, casename=casename, msg="SNR deviates too much from reference value"):
-					snr = np.squeeze(snr).item()
-					if refsnr is None:
-						refsnr = snr
-					else:
-						#print("{:.3f}, {:.3f}".format(refsnr, snr))
-						snrdeviation = abs(snr - refsnr)
-						assert snrdeviation < \
-								(ASSERT_SNR_TOL * confidencerelax)
-		
+	
 	@classmethod
-	def test_runAllExperiments(cls, tmp_path):
+	def test_runAllExperiments(cls, tmp_json):
 		
 		#Results created in two blocks
-		jsonpathscliced = (tmp_path / "psumsim_result_test_sliced.json")
+		jsonpathscliced = (tmp_json / "psumsim_result_test_sliced.json")
 		#And in one chunk
-		jsonpathfull = (tmp_path / "psumsim_result_test_full.json")
+		jsonpathfull = (tmp_json / "psumsim_result_test_full.json")
 		#And path for simulating single runs
-		jsonpathspecific = (tmp_path / "psumsim_result_test_specific.json")
+		jsonpathspecific = (tmp_json / "psumsim_result_test_specific.json")
 		#And path for proress file
-		progresspath = (tmp_path / "psumsim_progress_test.txt")
+		progresspath = (tmp_json / "psumsim_progress_test.txt")
 		#Names of single runs. Choose some which need references
 		specificruns = (
 				"rb_norm_sc_3_nm_64_al_3_wl_3_ic_3_fc_3_cs_10_fl_3_il_3",
@@ -3161,7 +3190,7 @@ class test_pytest():
 		
 	@classmethod
 	@pytest.mark.parametrize("makenone", (True, False))
-	def test_runDescription(cls, subtests, makenone):
+	def test_runDescription(cls, makenone):
 		if not makenone:
 			rundesc = RunDescription(
 					nummacs=4,
@@ -3241,7 +3270,7 @@ class test_pytest():
 		testdict[rundesc] = None
 	
 	@classmethod
-	def test_stimulusPlot(cls, tmp_path):
+	def test_stimulusPlot(cls, tmp_numpy):
 		
 		toexport = dict()
 		
@@ -3274,7 +3303,7 @@ class test_pytest():
 		
 		#Export stuff
 		np.savez(
-				file=(tmp_path / "psumsim_plot_data_stimulus"),
+				file=(tmp_numpy / "psumsim_plot_data_stimulus"),
 				**toexport
 		)
 			
@@ -3315,6 +3344,8 @@ class test_pytest():
 				"OCC does not match expectation from paper."
 		lastocc = occ
 		
+class test_pytestFeatures:
+		
 	@classmethod
 	def pytest_generate_tests(cls, metafunc):
 		if "caseraw" in metafunc.fixturenames:
@@ -3332,7 +3363,6 @@ class test_pytest():
 		yield allpostcases
 		assert sum(allpostcases) == 9+2
 		
-	
 	@classmethod
 	def test_setup(cls, caseprocessed, sumassertion):
 		assert caseprocessed > 0
