@@ -4,9 +4,7 @@ import enum
 import copy
 import json
 import math
-import pathlib
 import pytest
-import os
 
 from psumsim.array import normalizeAxes, getValueAlongAxis, padToEqualShape
 from psumsim.hist import histlenToBincount, bincountToHistlen, packHist, packStatistic, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
@@ -3552,28 +3550,3 @@ class test_pytestFeatures:
 		assert caseprocessed > 0
 		sumassertion.append(caseprocessed+1)
 		
-def main():
-	oldcwd = os.getcwd()
-	pytestdir = pathlib.Path(__file__).parent.parent
-	try:
-		os.chdir(pytestdir)
-		pytest.main()
-	finally:
-		os.chdir(oldcwd)
-
-
-if __name__ == "__main__":
-	#Our main is the unittest main, which makes this script support e.g.
-	#plot names.
-	main()
-
-	#Debug does not catch any exceptions. Works better with post mortem debugging
-	#testcase = test_Psum_Quantization(methodName="test_debugSimulation")
-	#testcase = test_Psum_Quantization(methodName="test_statStocComparisonPlot")
-	#testcase = test_Psum_Quantization(methodName="test_unquantQuantComparisonPlot")
-	#testcase = test_Psum_Quantization(methodName="test_optimumClippingCriterion")
-	#testcase = test_Psum_Quantization(methodName="test_runAllExperiments")
-	#testcase = test_Psum_Quantization(methodName="test_runDescription")
-	#testcase = test_Psum_Quantization(methodName="test_stimulusPlot")
-	#testsuite = ut.TestSuite(tests=(testcase,))
-	#testsuite.debug()

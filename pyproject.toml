@@ -59,7 +59,7 @@ Download = "https://github.com/Joschua-Conrad/PSumSim/archive/refs/heads/main.zi
 
 [project.scripts]
 psumsim = "psumsim.experiments:main"
-psumsim_test = "psumsim.test:main"
+psumsim_test = "psumsim.main_test:mainTest"
 
 [tool.setuptools]
 packages = ["psumsim"]
