@@ -13,10 +13,15 @@ This provides a python package. Downloading all files and using
 ```bash
 python3 -m pip install --editable .
 ```
-in the saem directory where this README is found installs the package and
+in the same directory where this README is found installs the package and
 allows all changes in source-files to reflect immediately.
 Remove the `--editable` switch to install the package like any other Python
-package, but you cannot change the provided *.py* files then.
+package, but you cannot change the provided *.py* files.
+
+Also consider using a
+[virtual environment](https://docs.python.org/3/library/venv.html) to install
+packages into. This prevents any possible package-version clashes with things
+you already have installed.
 
 ## How to Use
 After installing, there are several things provided by PSumSim.
@@ -41,7 +46,18 @@ each simulated experiment. Use this in your own Python script to get histograms
 reflecting your own MVM application.
 
 ### Tests
-To simply check that the installation worked, run `psumsim_test`.
+To simply check that the installation worked, first install test dependencies by
+running
+```bash
+python3 -m pip install --editable ".[test]"
+```
+and again possibly ommit `--editable` just like in
+[Install Instructions](#how-to-install). Then, run `psumsim_test`.
+Under the hood, *pytest* is used. Possible commandline arguments are descibed
+[here](https://docs.pytest.org/en/stable/how-to/usage.html). Common usage
+is to run a specific test case and exist immediately if that one fails,
+as run e.g. by `psumsim_test -x -k "test_optimumClippingCriterion"` for the
+test {any}`test_optimumClippingCriterion`.
 
 ## Acknowledgment
 This work was funded by the *German National Science Foundation (DFG)* under
