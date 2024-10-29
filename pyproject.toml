@@ -83,7 +83,9 @@ python_functions = "test_*"
 #__pycache__ is not allowed to be discovered here
 testpaths = "psumsim/*"
 #Only keep tmpfiles for failed tests
-tmp_path_retention_policy = "failed"
+#tmp_path_retention_policy = "failed"
+#Or always
+tmp_path_retention_policy = "all"
 #If a test with expected failure succeeds, the test fails
 xfail_strict = true
 required_plugins = [

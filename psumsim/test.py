@@ -20,42 +20,6 @@ class test_Psum_Quantization(ut.TestCase):
 	"""Do plots and analysis on psum quantization.
 	
 	"""
-	
-	#Factor for tolerated amplitude error
-	RELATIVE_CONFIDENCE_RELAX = 10.
-	#WHich share of experiments is ok to fail. Because we possibly compute
-	#quite small histograms and still want to allow an integer number of
-	#failed bins, we make this criterion weak and in return the relative
-	#relax more strong.
-	RELATIVE_SAMPLE_CONFIDENCE = 0.1
-	#Where to store result files
-	DATA_PATH = pl.Path()
-			
-	def concludeFigure(self, fig):
-		#Contextual import, because this one takes long
-		from matplotlib import pyplot as plt
-		plt.close(fig)
-		
-	def statStocCompare(self, stat, stoc, stataxis, msg=None):
-		stataxis, = normalizeAxes(axes=stataxis, referencendim=stat.ndim)
-		#Find over how many elements we average, as that influences assertion
-		#precision
-		averageover = stat.shape[stataxis]
-		#Average the bits along statistics axis to get probabilities
-		statavg = packStatistic(
-				topack=stat,
-				axis=stataxis,
-				keepdims=True,
-		)
-		#Compute absolute deviation in probability
-		deviation = np.abs(statavg - stoc)		
-		#That probability shall not be too large and we expect
-		#a more accurate number the more experimetns we run.
-		failpos = deviation > (1. / math.sqrt(averageover) * self.RELATIVE_CONFIDENCE_RELAX)
-		#Get the ratio of failed experiments
-		failrate = np.average(failpos, axis=None, keepdims=False)
-		#And limit that
-		assert failrate <= self.RELATIVE_SAMPLE_CONFIDENCE, msg
 		
 	def test_debugSimulation(self):
 		
@@ -2600,7 +2564,50 @@ class test_Psum_Quantization(ut.TestCase):
 								stataxis=STAT_AXIS,
 						)
 						
-	def test_statStocComparisonPlot(self):
+	
+
+class test_pytest():
+	
+	#Factor for tolerated amplitude error
+	RELATIVE_CONFIDENCE_RELAX = 10.
+	#WHich share of experiments is ok to fail. Because we possibly compute
+	#quite small histograms and still want to allow an integer number of
+	#failed bins, we make this criterion weak and in return the relative
+	#relax more strong.
+	RELATIVE_SAMPLE_CONFIDENCE = 0.1
+	#Where to store result files
+	DATA_PATH = pl.Path()
+			
+	@classmethod
+	def concludeFigure(cls, fig):
+		#Contextual import, because this one takes long
+		from matplotlib import pyplot as plt
+		plt.close(fig)
+		
+	@classmethod
+	def statStocCompare(cls, stat, stoc, stataxis, msg=None):
+		stataxis, = normalizeAxes(axes=stataxis, referencendim=stat.ndim)
+		#Find over how many elements we average, as that influences assertion
+		#precision
+		averageover = stat.shape[stataxis]
+		#Average the bits along statistics axis to get probabilities
+		statavg = packStatistic(
+				topack=stat,
+				axis=stataxis,
+				keepdims=True,
+		)
+		#Compute absolute deviation in probability
+		deviation = np.abs(statavg - stoc)		
+		#That probability shall not be too large and we expect
+		#a more accurate number the more experimetns we run.
+		failpos = deviation > (1. / math.sqrt(averageover) * cls.RELATIVE_CONFIDENCE_RELAX)
+		#Get the ratio of failed experiments
+		failrate = np.average(failpos, axis=None, keepdims=False)
+		#And limit that
+		assert failrate <= cls.RELATIVE_SAMPLE_CONFIDENCE, msg
+		
+	@classmethod
+	def test_statStocComparisonPlot(cls, tmp_path):
 		
 		#Test and plot same experiment, but once stochastic and once statistic.
 		#Just check that it does not crash.
@@ -2733,15 +2740,16 @@ class test_Psum_Quantization(ut.TestCase):
 			)
 			storearrays[label] = histvalues
 		
-		self.concludeFigure(fig=fig)
+		cls.concludeFigure(fig=fig)
 		
 		#Export plots
 		np.savez(
-				file=(self.DATA_PATH / "psumsim_plot_data_stat_stoc"),
+				file=(tmp_path / "psumsim_plot_data_stat_stoc"),
 				**storearrays,
 		)
 		
-	def test_unquantQuantComparisonPlot(self):
+	@classmethod
+	def test_unquantQuantComparisonPlot(cls, subtests, tmp_path):
 		
 		#Contextual import, because this one takes long
 		from matplotlib import pyplot as plt
@@ -2896,7 +2904,7 @@ class test_Psum_Quantization(ut.TestCase):
 			lastfinalinterm = finalinterm
 			
 			
-			with self.subTest(finalinterm=finalinterm, casename=casename):
+			with subtests.test(finalinterm=finalinterm, casename=casename):
 	
 
 				#Centrally defined, as they are needed in multiple spots.
@@ -3033,11 +3041,11 @@ class test_Psum_Quantization(ut.TestCase):
 							label=label,
 					)
 				
-				self.concludeFigure(fig=fig)
+				cls.concludeFigure(fig=fig)
 				
 		#Export plots
 		np.savez(
-				file=(self.DATA_PATH / "psumsim_plot_data_quant_unquant"),
+				file=(tmp_path / "psumsim_plot_data_quant_unquant"),
 				**storearrays,
 		)
 		
@@ -3049,7 +3057,7 @@ class test_Psum_Quantization(ut.TestCase):
 			#values will differ
 			refsnr = None
 			for casename, snr in snrsfinalinterm.items():
-				with self.subTest(finalinterm=finalinterm, casename=casename):
+				with subtests.test(finalinterm=finalinterm, casename=casename, msg="SNR deviates too much from reference value"):
 					snr = np.squeeze(snr).item()
 					if refsnr is None:
 						refsnr = snr
@@ -3057,19 +3065,19 @@ class test_Psum_Quantization(ut.TestCase):
 						#print("{:.3f}, {:.3f}".format(refsnr, snr))
 						snrdeviation = abs(snr - refsnr)
 						assert snrdeviation < \
-								(ASSERT_SNR_TOL * confidencerelax), \
-								"SNR deviates too much from reference value"
-			
-	def test_runAllExperiments(self):
+								(ASSERT_SNR_TOL * confidencerelax)
+		
+	@classmethod
+	def test_runAllExperiments(cls, tmp_path):
 		
 		#Results created in two blocks
-		jsonpathscliced = (self.DATA_PATH / "psumsim_result_test_sliced.json")
+		jsonpathscliced = (tmp_path / "psumsim_result_test_sliced.json")
 		#And in one chunk
-		jsonpathfull = (self.DATA_PATH / "psumsim_result_test_full.json")
+		jsonpathfull = (tmp_path / "psumsim_result_test_full.json")
 		#And path for simulating single runs
-		jsonpathspecific = (self.DATA_PATH / "psumsim_result_test_specific.json")
+		jsonpathspecific = (tmp_path / "psumsim_result_test_specific.json")
 		#And path for proress file
-		progresspath = (self.DATA_PATH / "psumsim_progress_test.txt")
+		progresspath = (tmp_path / "psumsim_progress_test.txt")
 		#Names of single runs. Choose some which need references
 		specificruns = (
 				"rb_norm_sc_3_nm_64_al_3_wl_3_ic_3_fc_3_cs_10_fl_3_il_3",
@@ -3106,10 +3114,13 @@ class test_Psum_Quantization(ut.TestCase):
 		)
 		jsonfp.close()
 		
-		#Create results in one big chunk
+		#Create results in one big chunk. Try using progbar here.
 		jsonfp = jsonpathfull.open("w")
 		runAllExperiments(
-				**commonargs,
+				**{
+						**commonargs,
+						"runquiet" : False,
+				},
 				jsonfp=jsonfp,
 				iterbegin=None,
 				iterend=None,
@@ -3148,93 +3159,89 @@ class test_Psum_Quantization(ut.TestCase):
 		progressfp.close()
 		jsonfp.close()
 		
+	@classmethod
+	@pytest.mark.parametrize("makenone", (True, False))
+	def test_runDescription(cls, subtests, makenone):
+		if not makenone:
+			rundesc = RunDescription(
+					nummacs=4,
+					chunksize=3,
+					activationlevels=10,
+					weightlevels=9,
+					intermediatelevels=7,
+					finallevels=10,
+					initialcliplimit="occ",
+					intermediatecliplimit="occ",
+					finalcliplimit="occ",
+					randombehave="uniform",
+					allowskip=False,
+					createdummy=False,
+			)
+		else:
+			#This is anyhow skipped, so we can test all combinations of
+			#types for e.g. cliplimit to test that they are restored
+			#correctly from string.
+			rundesc = RunDescription(
+					#Is always turned to int
+					nummacs=4,
+					#Chunksize could be None, not just a number as above
+					chunksize=5,
+					#Levelcount can be a number or None. Skip this run
+					#by specifying weight precision larger than activation
+					activationlevels=10,
+					weightlevels=11,
+					intermediatelevels=None,
+					finallevels=None,
+					#Cliplimit can be None, number or OCC string
+					initialcliplimit="occ",
+					intermediatecliplimit=None,
+					finalcliplimit=3,
+					#Is always converted to str
+					randombehave="uniform",
+					allowskip=True,
+					createdummy=False,
+			)
+			
+		#Assert the skip flag
+		assert makenone == rundesc.skipthisrun, "Test run description skips"
 		
-	def test_runDescription(self):
-
+		#Turn to str. This will disregard dummy info
+		rundescstr = rundesc.toStr()
 		
-		for makenone in (True, False):
+		#This will create a dummy without reference info
+		rundescdummy = rundesc.copy(allowskip=makenone, createdummy=True)
 		
-			if not makenone:
-				rundesc = RunDescription(
-						nummacs=4,
-						chunksize=3,
-						activationlevels=10,
-						weightlevels=9,
-						intermediatelevels=7,
-						finallevels=10,
-						initialcliplimit="occ",
-						intermediatecliplimit="occ",
-						finalcliplimit="occ",
-						randombehave="uniform",
-						allowskip=False,
-						createdummy=False,
-				)
-			else:
-				#This is anyhow skipped, so we can test all combinations of
-				#types for e.g. cliplimit to test that they are restored
-				#correctly from string.
-				rundesc = RunDescription(
-						#Is always turned to int
-						nummacs=4,
-						#Chunksize could be None, not just a number as above
-						chunksize=5,
-						#Levelcount can be a number or None. Skip this run
-						#by specifying weight precision larger than activation
-						activationlevels=10,
-						weightlevels=11,
-						intermediatelevels=None,
-						finallevels=None,
-						#Cliplimit can be None, number or OCC string
-						initialcliplimit="occ",
-						intermediatecliplimit=None,
-						finalcliplimit=3,
-						#Is always converted to str
-						randombehave="uniform",
-						allowskip=True,
-						createdummy=False,
-				)
-
-			with self.subTest(makenone=makenone):
-				
-				#Assert the skip flag
-				assert makenone == rundesc.skipthisrun, "Test run description skips"
-				
-				#Turn to str. This will disregard dummy info
-				rundescstr = rundesc.toStr()
-				
-				#This will create a dummy without reference info
-				rundescdummy = rundesc.copy(allowskip=makenone, createdummy=True)
-				
-				assert rundescdummy.sqnrreference is \
-						None, \
-						"A dummy must have a None SQNR reference."
-				
-				#The None case has no intermediate or final quant. It hence
-				#has no reference. We can there assert that the dummy changes
-				#nothing.
-				if makenone:
-					assert rundesc == \
-							rundescdummy, \
-							"THe dummy shold not change anything here."
-				#In the other case, we have an SQNR reference and can check that
-				#the chain of rundescription breaks there
-				else:
-					assert rundesc.sqnrreference.sqnrreference is \
-							None, \
-							"A SQNR reference must have a None SQNR reference."
-				
-				#Go back, this will re-derive dummy info
-				rundescrederived = RunDescription.fromStr(thestr=rundescstr, allowskip=makenone, createdummy=False)
-				
-				assert rundesc == \
-						rundescrederived, \
-						"Going to and from str changes rundescription"
+		assert rundescdummy.sqnrreference is \
+				None, \
+				"A dummy must have a None SQNR reference."
+		
+		#The None case has no intermediate or final quant. It hence
+		#has no reference. We can there assert that the dummy changes
+		#nothing.
+		if makenone:
+			assert rundesc == \
+					rundescdummy, \
+					"THe dummy shold not change anything here."
+		#In the other case, we have an SQNR reference and can check that
+		#the chain of rundescription breaks there
+		else:
+			assert rundesc.sqnrreference.sqnrreference is \
+					None, \
+					"A SQNR reference must have a None SQNR reference."
+		
+		#Go back, this will re-derive dummy info
+		rundescrederived = RunDescription.fromStr(thestr=rundescstr, allowskip=makenone, createdummy=False)
+		
+		assert rundesc == \
+				rundescrederived, \
+				"Going to and from str changes rundescription"
 				
 		#Check that rundescription is a valid key
 		testdict = dict()
 		testdict[rundesc] = None
-		
-	def test_stimulusPlot(self):
+	
+	@classmethod
+	def test_stimulusPlot(cls, tmp_path):
 		
 		toexport = dict()
 		
@@ -3263,49 +3270,50 @@ class test_Psum_Quantization(ut.TestCase):
 					label=None,
 			)
 			
-			self.concludeFigure(fig=fig)
+			cls.concludeFigure(fig=fig)
 		
 		#Export stuff
 		np.savez(
-				file=(self.DATA_PATH / "psumsim_plot_data_stimulus"),
+				file=(tmp_path / "psumsim_plot_data_stimulus"),
 				**toexport
 		)
+			
+	@classmethod
+	@pytest.mark.parametrize("levels", (1, 3, 7, 15, 31, 63, 64, 127,))
+	def test_optimumClippingCriterion(cls, levels):
+		#Test OCC function across bitwidths
 		
-@pytest.mark.parametrize("levels", (1, 3, 7, 15, 31, 63, 64, 127,))
-def test_optimumClippingCriterion(levels):
-	#Test OCC function across bitwidths
-	
-	abstol = 1e-6
-	maxiter = 100
-	
-	#This levels/value pair was read from the paper
-	paperlevels = 64
-	#Value also generated by tested function with better abstol, but
-	#compared to Fig. 2 in paper
-	paperocc = 3.2869142152137605
-	
-	#Value shall raise with bitwidth
-	lastocc = None	
-	occ = optimumClippingCriterion(
-			levels=levels,
-			abstol=abstol,
-			maxiter=maxiter,
-	)
-	assert type(occ) is \
-			float, \
-			"OCC has wrong datatype."
-	if lastocc is not None:
-		assert occ > \
-				lastocc, \
-				"OCC should rise with number of levels."
-	if levels == paperlevels:
-		assert occ == pytest.approx(
-					paperocc,
-					rel=0.,
-					abs=abstol,
-			), \
-			"OCC does not match expectation from paper."
-	lastocc = occ
+		abstol = 1e-6
+		maxiter = 100
+		
+		#This levels/value pair was read from the paper
+		paperlevels = 64
+		#Value also generated by tested function with better abstol, but
+		#compared to Fig. 2 in paper
+		paperocc = 3.2869142152137605
+		
+		#Value shall raise with bitwidth
+		lastocc = None	
+		occ = optimumClippingCriterion(
+				levels=levels,
+				abstol=abstol,
+				maxiter=maxiter,
+		)
+		assert type(occ) is \
+				float, \
+				"OCC has wrong datatype."
+		if lastocc is not None:
+			assert occ > \
+					lastocc, \
+					"OCC should rise with number of levels."
+		if levels == paperlevels:
+			assert occ == pytest.approx(
+						paperocc,
+						rel=0.,
+						abs=abstol,
+				), \
+				"OCC does not match expectation from paper."
+		lastocc = occ
 		
 def main():
 	oldcwd = os.getcwd()
