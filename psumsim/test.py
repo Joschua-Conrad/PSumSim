@@ -3315,6 +3315,29 @@ class test_pytest():
 				"OCC does not match expectation from paper."
 		lastocc = occ
 		
+	@classmethod
+	def pytest_generate_tests(cls, metafunc):
+		if "caseraw" in metafunc.fixturenames:
+			metafunc.parametrize("caseraw", ("Hallo", "Welt"))
+			
+	@classmethod
+	@pytest.fixture
+	def caseprocessed(cls, caseraw):
+		return len(caseraw)
+	
+	@classmethod
+	@pytest.fixture(scope="class")
+	def sumassertion(cls):
+		allpostcases = list()
+		yield allpostcases
+		assert sum(allpostcases) == 9+2
+		
+	
+	@classmethod
+	def test_setup(cls, caseprocessed, sumassertion):
+		assert caseprocessed > 0
+		sumassertion.append(caseprocessed+1)
+		
 def main():
 	oldcwd = os.getcwd()
 	pytestdir = pathlib.Path(__file__).parent.parent
