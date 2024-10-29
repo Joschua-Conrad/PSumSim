@@ -55,7 +55,7 @@ class test_Psum_Quantization(ut.TestCase):
 		#Get the ratio of failed experiments
 		failrate = np.average(failpos, axis=None, keepdims=False)
 		#And limit that
-		self.assertLessEqual(failrate, self.RELATIVE_SAMPLE_CONFIDENCE, msg=msg)
+		assert failrate <= self.RELATIVE_SAMPLE_CONFIDENCE, msg
 		
 	def test_debugSimulation(self):
 		
@@ -2013,22 +2013,16 @@ class test_Psum_Quantization(ut.TestCase):
 								fieldname=fieldname,
 								resultidx=resultidx,
 						):
-							self.assertEqual(
-									runresult.shape,
-									expandedshape,
-									msg="Not the expected array shape",
-							)
-							self.assertEqual(
-									runresult.dtype,
-									expecteddtype,
-									msg="Not the expected array dtype",
-							)
+							assert runresult.shape == \
+									expandedshape, \
+									"Not the expected array shape"
+							assert runresult.dtype == \
+									expecteddtype, \
+									"Not the expected array dtype"
 							#Assert sum over histogram if given
 							if sumoverhist is not None:
-								self.assertTrue(
-										np.all(np.absolute(1 - sumoverhist) < HIST_SUM_TOLERANCE),
-										msg="Sum over histogram not 1",
-								)
+								assert np.all(np.absolute(1 - sumoverhist) < HIST_SUM_TOLERANCE), \
+										"Sum over histogram not 1"
 							#Compare results against earlier results from other
 							#runs. Shapes are already asserted within each run
 							#assertions, so compare values only.
@@ -2091,10 +2085,8 @@ class test_Psum_Quantization(ut.TestCase):
 									else:
 										error = unpadded != padded
 									with self.subTest(comparegroupname=comparegroupname):
-										self.assertTrue(
-												np.all(error < ABSOLUTE_GROUP_COMPARE_TOLERANCE),
-												msg="Result not the same as reference.",
-									)
+										assert np.all(error < ABSOLUTE_GROUP_COMPARE_TOLERANCE), \
+												"Result not the same as reference."
 								
 				#Assert correct number of results
 				checkedruns = (
@@ -2108,12 +2100,10 @@ class test_Psum_Quantization(ut.TestCase):
 					with self.subTest(
 							runname=runname,	
 					):
-						self.assertEqual(
-								len(runobj["results"]),
-								len(groupsshapeshistaxesgroupnames),
-								msg="There are not as many results as run "
+						assert len(runobj["results"]) == \
+								len(groupsshapeshistaxesgroupnames), \
+								"There are not as many results as run " \
 								"experiments."
-						)
 				
 				#Now assert the ADC Energy. Check in all runs and
 				#remember where histlen is unknwon, such that we have to
@@ -2133,12 +2123,10 @@ class test_Psum_Quantization(ut.TestCase):
 					with self.subTest(
 							runname=runname,	
 					):
-						self.assertEqual(
-								len(runobj["results"]),
-								len(runobj["mergeefforts"]),
-								msg="There are not as many merge efforts "
+						assert len(runobj["results"]) == \
+								len(runobj["mergeefforts"]), \
+								"There are not as many merge efforts " \
 								"as runresults."
-						)
 						
 					for runidx, mergeeffortresultgrouphistaxes in enumerate(zip(
 							runobj["mergeefforts"],
@@ -2207,20 +2195,16 @@ class test_Psum_Quantization(ut.TestCase):
 								runname=runname,
 								runidx=runidx,
 						):
-							self.assertAlmostEqual(
-									runmergeeffort,
-									expectedmergeeffort,
-									#Need this, because mergeeffort computed
-									#with maxhistvalue and with shape has a 
-									#1e-9 float error.
-									places=9,
-									msg="Merge effort does not have expected value."
-							)
-							self.assertEqual(
-									type(runmergeeffort),
-									type(expectedmergeeffort),
-									msg="Merge effort does not have expected type."
-							)
+							assert type(runmergeeffort) == \
+									type(expectedmergeeffort), \
+									"Merge effort does not have expected type."
+							if runmergeeffort is not None:
+								assert runmergeeffort == pytest.approx(
+												expectedmergeeffort,
+												rel=1e-9,
+												abs=0.,
+										), \
+										"Merge effort does not have expected value."
 							
 				#Assert correct number of maxhistvalue
 				checkedruns = (
@@ -2234,12 +2218,10 @@ class test_Psum_Quantization(ut.TestCase):
 					with self.subTest(
 							runname=runname,	
 					):
-						self.assertEqual(
-								len(runobj["maxhistvalues"]),
-								len(groupsshapeshistaxesgroupnames),
-								msg="There are not as many maxhistvalues as run "
+						assert len(runobj["maxhistvalues"]) == \
+								len(groupsshapeshistaxesgroupnames), \
+								"There are not as many maxhistvalues as run " \
 								"experiments."
-						)
 
 				#Assert the maximum histogram values by taking stochastic result,
 				#where the histogram shape has already been asserted, and by
@@ -2286,15 +2268,11 @@ class test_Psum_Quantization(ut.TestCase):
 						):
 							#Assert on hand-crafted expected value
 							if not chunksizecliplimitstddevcliplimitfixedintroduced:
-								self.assertEqual(
-									maxhistvalue.shape,
-									expectedmaxhistvalue.shape,
-									msg="Shape of maxhistvalue not as predicted.",
-								)
-								self.assertTrue(
-									np.all(maxhistvalue==expectedmaxhistvalue),
-									msg="Value of maxhistvalue not as predicted.",
-								)
+								assert maxhistvalue.shape == \
+									expectedmaxhistvalue.shape, \
+									"Shape of maxhistvalue not as predicted."
+								assert np.all(maxhistvalue==expectedmaxhistvalue), \
+									"Value of maxhistvalue not as predicted."
 							#refobj is a fullscale simulation result
 							refobj = refobj["results"][runidx]
 							#Assert on value from full-scale simulation. Here we can
@@ -2306,15 +2284,11 @@ class test_Psum_Quantization(ut.TestCase):
 							#check of whether the fullscale was correctly carried thru
 							#all reduceSum calls.
 							checkmask = refobj > 0
-							self.assertEqual(
-								maxhistvalue.shape,
-								refobj.shape,
-								msg="Shape of maxhistvalue not as in fullscale sim.",
-							)
-							self.assertTrue(
-								np.all(maxhistvalue[checkmask]==refobj[checkmask]),
-								msg="Value of maxhistvalue not as in fullscale sim.",
-							)
+							assert maxhistvalue.shape == \
+								refobj.shape, \
+								"Shape of maxhistvalue not as in fullscale sim."
+							assert np.all(maxhistvalue[checkmask]==refobj[checkmask]), \
+								"Value of maxhistvalue not as in fullscale sim."
 							
 				#Assert cliplimitfixed result field, which is special because it
 				#could be None or float, but never numpy.
@@ -2328,11 +2302,9 @@ class test_Psum_Quantization(ut.TestCase):
 				for runobj, runname in checkedruns:	
 					cliplimitfixeds = runobj["cliplimitfixeds"]
 					with self.subTest(runname=runname):
-						self.assertEqual(
-								len(runobj["results"]),
-								len(cliplimitfixeds),
-								msg="There is not one cliplimitfixed per run",
-						)
+						assert len(runobj["results"]) == \
+								len(cliplimitfixeds), \
+								"There is not one cliplimitfixed per run"
 					
 					for resultidx, cliplimitfixedgrouphistax in enumerate(zip(cliplimitfixeds, groups, histaxesfromgroups)):
 						cliplimitfixed, group, histaxes = cliplimitfixedgrouphistax
@@ -2344,19 +2316,15 @@ class test_Psum_Quantization(ut.TestCase):
 								resultidx=resultidx,
 						):
 							if expectnone:
-								self.assertIs(
-										cliplimitfixed,
-										None,
-										msg="Cliplimitfixed should be None",
-								)
+								assert cliplimitfixed is \
+										None, \
+										"Cliplimitfixed should be None"
 							else:
 								#DO not use isinstance, because float np.ndarray
 								#is True on that test, too
-								self.assertIs(
-										type(cliplimitfixed),
-										float,
-										msg="Cliplimitfixed should be float",
-								)
+								assert type(cliplimitfixed) is \
+										float, \
+										"Cliplimitfixed should be float"
 								#We know the cliplimitfixed exactly, if it was given
 								#as arg and not computed from standard devaition.
 								#FOr negative mergevalues, we cannot restore
@@ -2380,12 +2348,10 @@ class test_Psum_Quantization(ut.TestCase):
 									#all axes but before going into scaling and
 									#merging of values.
 									if histlen > 1:
-										self.assertEqual(
-												cliplimitfixed,
-												expected,
-												msg="Cliplimitfixed does not have "
+										assert cliplimitfixed == \
+												expected, \
+												"Cliplimitfixed does not have " \
 												"expected value from argument."
-										)
 									
 									
 				#Returned mergevalues are similar checked to cliplimitfixed
@@ -2400,11 +2366,9 @@ class test_Psum_Quantization(ut.TestCase):
 					mergevaluess = runobj["mergevaluess"]
 					cliplimitfixeds = runobj["cliplimitfixeds"]
 					with self.subTest(runname=runname):
-						self.assertEqual(
-								len(runobj["results"]),
-								len(cliplimitfixeds),
-								msg="There is not one mergevalues per run",
-						)
+						assert len(runobj["results"]) == \
+								len(cliplimitfixeds), \
+								"There is not one mergevalues per run"
 					
 					for resultidx, mergevaluescliplimitfixedsgroup in enumerate(zip(mergevaluess, cliplimitfixeds, groups)):
 						mergevalues, cliplimitfixed, group = mergevaluescliplimitfixedsgroup
@@ -2415,19 +2379,15 @@ class test_Psum_Quantization(ut.TestCase):
 								resultidx=resultidx,
 						):
 							if expectnone:
-								self.assertIs(
-										mergevalues,
-										None,
-										msg="Mergevalues should be None",
-								)
+								assert mergevalues is \
+										None, \
+										"Mergevalues should be None"
 							else:
 								#DO not use isinstance, because float np.ndarray
 								#is True on that test, too
-								self.assertIs(
-										type(mergevalues),
-										float,
-										msg="Mergevalues should be float",
-								)
+								assert type(mergevalues) is \
+										float, \
+										"Mergevalues should be float"
 								#Now try to assert actual value. If we have a
 								#negative mergevalues argument, we only know
 								#that the resulting value still should be at
@@ -2441,21 +2401,17 @@ class test_Psum_Quantization(ut.TestCase):
 								#That a negative mergevalue translates to keeping
 								#that number of bins is regarded in shape checks.
 								if (mergevaluesarg < 0) or ((cliplimitfixed is not None) and (cliplimitfixed != 1)):
-									self.assertGreaterEqual(
-											mergevalues,
-											1,
-											msg="Returned mergevalues need to "
-											"be positive.",
-									)
+									assert mergevalues >= \
+											1, \
+											"Returned mergevalues need to " \
+											"be positive."
 								#Otherwise, the returned value should be the
 								#argument.
 								else:
-									self.assertEqual(
-											mergevalues,
-											mergevaluesarg,
-											msg="Returned mergevalues should be "
-											"value from argument.",
-									)
+									assert mergevalues == \
+											mergevaluesarg, \
+											"Returned mergevalues should be " \
+											"value from argument."
 									
 									
 									
@@ -2542,11 +2498,9 @@ class test_Psum_Quantization(ut.TestCase):
 									runobj["results"][-1],
 									(effectiveaverageover,),
 							)
-							self.assertTrue(
-									np.all(testedreshaped == expected),
-									msg="Simple integer and bit-wise compute shall "
-											"yield same result",
-									)
+							assert np.all(testedreshaped == expected), \
+									"Simple integer and bit-wise compute shall " \
+											"yield same result"
 					
 				#Retrieve statistic integer results as uint, which is nice
 				#to compare.
@@ -2581,14 +2535,12 @@ class test_Psum_Quantization(ut.TestCase):
 				#addition. If this does not work, the probability stuff is
 				#doomed to fail.
 				#This check is similar to selfcheckindummy.
-				self.assertTrue(
-						np.all(
+				assert np.all(
 								statisticuintresult == \
 								statisticdummyintresult
-						),
-						msg="Deriving statistics with uint dtype and with "
-								"bitwise computation shall yield same result.",
-						)
+						), \
+						"Deriving statistics with uint dtype and with " \
+								"bitwise computation shall yield same result."
 					
 				#For debugging: Skip stochastic stuff
 				#continue
@@ -3104,11 +3056,9 @@ class test_Psum_Quantization(ut.TestCase):
 					else:
 						#print("{:.3f}, {:.3f}".format(refsnr, snr))
 						snrdeviation = abs(snr - refsnr)
-						self.assertLess(
-								snrdeviation,
-								(ASSERT_SNR_TOL * confidencerelax),
-								msg="SNR deviates too much from reference value",
-						)
+						assert snrdeviation < \
+								(ASSERT_SNR_TOL * confidencerelax), \
+								"SNR deviates too much from reference value"
 					
 	def test_optimumClippingCriterion(self):
 		#Test OCC function across bitwidths
@@ -3132,24 +3082,20 @@ class test_Psum_Quantization(ut.TestCase):
 						abstol=abstol,
 						maxiter=maxiter,
 				)
-				self.assertIs(
-						type(occ),
-						float, 
-						msg="OCC has wrong datatype."
-				)
+				assert type(occ) is \
+						float, \
+						"OCC has wrong datatype."
 				if lastocc is not None:
-					self.assertGreater(
-							occ,
-							lastocc, 
-							msg="OCC should rise with number of levels."
-					)
+					assert occ > \
+							lastocc, \
+							"OCC should rise with number of levels."
 				if levels == paperlevels:
-					self.assertAlmostEqual(
-							occ,
-							paperocc,
-							places=int(-math.log10(abstol)),
-							msg="OCC does not match expectation from paper."
-					)
+					assert occ == pytest.approx(
+								paperocc,
+								rel=0.,
+								abs=abstol,
+						), \
+						"OCC does not match expectation from paper."
 				lastocc = occ
 			
 	def test_runAllExperiments(self):
@@ -3215,11 +3161,9 @@ class test_Psum_Quantization(ut.TestCase):
 			readresults.append(json.load(fp))
 			fp.close()
 			
-		self.assertEqual(
-				readresults[0],
-				readresults[1],
-				msg="Sliced and full experiment do not create same results"
-		)
+		assert readresults[0] == \
+				readresults[1], \
+				"Sliced and full experiment do not create same results"
 		
 		#Also check running two specific runs without the multiprocessing
 		progressfp = progresspath.open("a")
@@ -3291,7 +3235,7 @@ class test_Psum_Quantization(ut.TestCase):
 			with self.subTest(makenone=makenone):
 				
 				#Assert the skip flag
-				self.assertEqual(makenone, rundesc.skipthisrun, msg="Test run description skips",)
+				assert makenone == rundesc.skipthisrun, "Test run description skips"
 				
 				#Turn to str. This will disregard dummy info
 				rundescstr = rundesc.toStr()
@@ -3299,38 +3243,30 @@ class test_Psum_Quantization(ut.TestCase):
 				#This will create a dummy without reference info
 				rundescdummy = rundesc.copy(allowskip=makenone, createdummy=True)
 				
-				self.assertIs(
-						rundescdummy.sqnrreference,
-						None,
-						msg="A dummy must have a None SQNR reference.",
-				)
+				assert rundescdummy.sqnrreference is \
+						None, \
+						"A dummy must have a None SQNR reference."
 				
 				#The None case has no intermediate or final quant. It hence
 				#has no reference. We can there assert that the dummy changes
 				#nothing.
 				if makenone:
-					self.assertEqual(
-							rundesc,
-							rundescdummy,
-							msg="THe dummy shold not change anything here.",
-					)
+					assert rundesc == \
+							rundescdummy, \
+							"THe dummy shold not change anything here."
 				#In the other case, we have an SQNR reference and can check that
 				#the chain of rundescription breaks there
 				else:
-					self.assertIs(
-							rundesc.sqnrreference.sqnrreference,
-							None,
-							msg="A SQNR reference must have a None SQNR reference.",
-					)
+					assert rundesc.sqnrreference.sqnrreference is \
+							None, \
+							"A SQNR reference must have a None SQNR reference."
 				
 				#Go back, this will re-derive dummy info
 				rundescrederived = RunDescription.fromStr(thestr=rundescstr, allowskip=makenone, createdummy=False)
 				
-				self.assertEqual(
-						rundesc,
-						rundescrederived,
-						msg="Going to and from str changes rundescription",
-				)
+				assert rundesc == \
+						rundescrederived, \
+						"Going to and from str changes rundescription"
 				
 		#Check that rundescription is a valid key
 		testdict = dict()
