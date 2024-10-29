@@ -11,6 +11,7 @@ import pathlib
 import multiprocessing
 from .hist import histlenToBincount, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
 from .simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized
+from psumsim import __version__
 
 NUMMACS = [64, 128,]
 #A chunksize equal to nummacs is a rejected run. Instead give None
@@ -1113,6 +1114,14 @@ Is ignored if runnames are already given."""
 	parser.add_argument(
 			"-q", "--quiet",
 			action="store_true",
+			help=thehelp,
+	)
+	
+	thehelp="Display PSumSim version."
+	parser.add_argument(
+			"-v", "--version",
+			action="version",
+			version=__version__,
 			help=thehelp,
 	)
 	
