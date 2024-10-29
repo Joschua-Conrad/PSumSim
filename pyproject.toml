@@ -71,3 +71,16 @@ psumsim = ["VERSION.txt"]
 [tool.setuptools.dynamic]
 readme = {file = "README.md"}
 version = {file = "psumsim/VERSION.txt"}
+
+[tool.pytest.ini_options]
+#Fail on emtpy parameter list
+empty_parameter_set_mark = "xfail"
+#Help test discovery
+python_classes = "test_*"
+python_files = "test*.py"
+python_functions = "test_*"
+testpaths = "psumsim/**"
+#Only keep tmpfiles for failed tests
+tmp_path_retention_policy = "failed"
+#If a test with expected failure succeeds, the test fails
+xfail_strict = true
