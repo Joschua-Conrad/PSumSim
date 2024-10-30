@@ -138,6 +138,32 @@ def bincountToHistlen(bincount):
 	return histlen
 		
 def getHistValues(bincount, axis, ndim, padlower, padupper):
+	"""Get a vector of values to which histogram bins refer.
+
+	Parameters
+	----------
+	bincount : `int`
+		Number of bins and length of histogram.
+		
+	axis : `int`
+		Forwarded to `padAxes`. Often, `HIST_AXIS` is used.
+		
+	ndim : `int`
+		Forwarded to `padAxes`.
+		
+	padlower : `bool`
+		Forwarded to `padAxes`.
+		
+	padupper : `bool`
+		Forwarded to `padAxes`.
+
+	Returns
+	-------
+	histindex : `numpy.ndarray` of `int`
+		The values the bins of a histogram refer to. By default, this is
+		1D array. Lower and upper padding is then applied by `padAxes`.
+	"""
+	
 	#Get broadcastable matrix which notes numbers which notes which numbers
 	#make it where in the histogram.
 	#THe bincount is the length of the full histogram with positive and
@@ -168,6 +194,43 @@ def getHistValues(bincount, axis, ndim, padlower, padupper):
 	return histindex
 
 def unpackHist(tounpack, bincount, axis):
+	"""Unpack a *dostatistic* to a *dostatisticdummy* representation.
+	
+	See `dataformat`. This turns an array of `int` values into an array
+	of one-hot histograms of `bool`.
+
+	Parameters
+	----------
+	tounpack : `numpy.ndarray`
+		The array to unpack. Is not allowed to be of type `numpy.floating`.
+		The new histogram axis must already exist and have length 1.
+		
+	bincount : `int`
+		Desired length of new histogram.
+		
+	axis : `int`
+		New histogram axis index. Often, `HIST_AXIS` is used.
+
+	Raises
+	------
+	`TypeError`
+		If *tounpack* has some floating-point dtype.
+		
+	`IndexError`
+		If the given histogram axis has not length 1.
+		
+	`ValueError`
+		If during conversion, there are are values found which are too large
+		to be represented by *bincount*. 
+
+	Returns
+	-------
+	unpacked : `numpy.ndarray` of `bool`
+		New array, with same shape like *tounpack* except that the *axis* has
+		now length *bincount*.
+
+	"""
+	
 	#Axis should be a single value
 	axis, = normalizeAxes(axes=axis, referencendim=tounpack.ndim)
 	
@@ -210,7 +273,47 @@ def unpackHist(tounpack, bincount, axis):
 	
 	return unpacked
 
-def packHist(topack, axis, keepdims, strict):
+def packHist(topack, axis, keepdims=True, strict=True):
+	"""Pack a *dostatisticdummy* to a *dostatistic* representation.
+	
+	See `dataformat`. This turns an array of one-hot `bool` values into an
+	array of `int`.
+
+	Parameters
+	----------
+	topack : `numpy.ndarray`
+		The array to pack. Is not allowed to be of type `numpy.floating`.
+		The histograms must be one-hot encoded.
+
+	axis : `int`
+		Old histogram axis index. Often, `HIST_AXIS` is used.
+		
+	keepdims : `bool`, optional
+		Whether to keep the obsolete histogram axis after conversion instead of
+		using `numpy.squeeze` on it.
+		The default is to keep it.
+		
+	strict : `bool`, optional
+		If set, *tounpack* is checked on being a one-hot histogram.
+		The default is to do the check.
+
+	Raises
+	------
+	`TypeError`
+		If *topack* has some floating-point dtype.
+		
+	`ValueError`
+		If during conversion, there are histograms found which have not exactly
+		one non-zero value. Skipped if *strict* is not set.
+
+	Returns
+	-------
+	packed : `numpy.ndarray` of `int`
+		The packed array. Dimension *axis* has length 1 or is completely removed,
+		depending in *keepdims*. The datatype is deduced from `getHistValues`,
+		as that knows best about values of histograms.
+
+	"""
 	#Axis should be a single value
 	axis, = normalizeAxes(axes=axis, referencendim=topack.ndim)
 	
@@ -256,7 +359,43 @@ def packHist(topack, axis, keepdims, strict):
 	
 	return packed
 
-def packStatistic(topack, axis, keepdims):
+def packStatistic(topack, axis, keepdims=True):
+	"""Pack a *dostatisticdummy* to a *dostochastic* representation.
+	
+	See `dataformat`. Use this, if you have a ton of computations which have
+	been done in parallel and want to know the probability of each result
+	value.
+
+	Parameters
+	----------
+	topack : `numpy.ndarray` of `bool`
+		The array to pack. Any dtype allowed.
+
+	axis : `int`
+		The statistic axis. Often, `STAT_AXIS` is used.
+		
+	keepdims : `bool`, optional
+		Whether to keep the obsolete statistic axis after conversion instead of
+		using `numpy.squeeze` on it.
+		The default is to keep it.
+
+	Returns
+	-------
+	packed : `numpy.ndarray` of `float`
+		The packed array. Dimension *axis* has length 1 or is completely removed,
+		depending in *keepdims*. The datatype is determined by `numpy.average`
+		and probably is some `float` probability.
+
+	"""
+	
+	if topack.dtype != "bool":
+		raise ValueError(
+				f"Can only pack histograms with bool dtype to some probability, "
+				f"but got {topack.dtype}.",
+				topack.dtype,
+				
+		)
+	
 	#Axis should be a single value
 	axis, = normalizeAxes(axes=axis, referencendim=topack.ndim)
 	

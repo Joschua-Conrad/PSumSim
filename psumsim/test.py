@@ -2731,13 +2731,14 @@ class test_simulation(BaseTestCase):
 					topmsg="Statistic and stochastic input operands shall match",
 			):
 				cls.statStocCompare(
-						stat=retstatistic[checkoperand],
+						stat=retstatisticdummy[checkoperand],
 						stoc=retstochastic[checkoperand],
 						stataxis=STAT_AXIS,
 				)
-				#No need to also check with retstatisticdummy, they
+				#No need to also check with retstatistic, they
 				#derive weights and activations the same way as
-				#retstatistics.
+				#retstatistics and it anyhow is asserted below, that compuations
+				#yield exactly the same
 				
 				
 	@classmethod

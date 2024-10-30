@@ -2071,6 +2071,14 @@ def equalizeQuantizedUnquantized(
 				unquantizedmergevaluess,
 				quantizedmergevaluess,
 		)
+		
+	if histaxis == stataxis:
+		raise IndexError(
+				f"histaxis {histaxis} and stataxis {stataxis} cannot be the "
+				f"same.",
+				histaxis,
+				stataxis,
+		)
 	
 	processed = quantizedresult
 	
@@ -2242,6 +2250,14 @@ def computeSqnr(
 				f"and {quantized.shape}. But they have to be equal.",
 				unquantized.shape,
 				quantized.shape,
+		)
+		
+	if histaxis == stataxis:
+		raise IndexError(
+				f"histaxis {histaxis} and stataxis {stataxis} cannot be the "
+				f"same.",
+				histaxis,
+				stataxis,
 		)
 	
 	histaxis, = normalizeAxes(
@@ -2673,16 +2689,20 @@ def computeSqnr(
 		#we still can square to have a squared error
 		errorhistsquared = np.square(errorhistlinear, dtype=errorhistlinear.dtype)
 		#Now average over statistics axis which is the same like multiplying
-		#error magnitude and its probbility.
-		errorpowerlinear = packStatistic(
-				topack=errorhistlinear,
+		#error magnitude and its probbility. Do not use packStatistic, becuase
+		#we here have no bool dtype, because we have for each computation at its
+		#desired result value the error it made. And that error is not bool.
+		errorpowerlinear = np.average(
+				errorhistlinear,
 				axis=stataxis,
 				keepdims=True,
+				#dtype="float",
 		)
-		errorpowersquared = packStatistic(
-				topack=errorhistsquared,
+		errorpowersquared = np.average(
+				errorhistsquared,
 				axis=stataxis,
 				keepdims=True,
+				#dtype="float",
 		)
 		
 		#Error and signal power for SNR could be computed by using
