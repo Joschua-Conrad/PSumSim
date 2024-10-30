@@ -89,6 +89,30 @@ def histlenToBincount(histlen):
 	return bincount
 
 def bincountToHistlen(bincount):
+	"""Turn a *bincount*to *histlen*.
+	
+	See `dataformat`. *bincounts* *1* and *2* are valid and refer to value
+	sets *[1]* and *[0; 1]* respectively. They return a *histlen* of *1*.
+	
+
+	Parameters
+	----------
+	bincount : `int`
+		A positive *bincount* as in `dataformat`.
+
+	Raises
+	------
+	`ValueError`
+		If the *bincount* is not an odd number.
+
+	Returns
+	-------
+	histlen : `int`
+		A positive *histlen* as in `dataformat`.
+
+	"""
+	
+	
 	returnpython = (not isinstance(bincount, np.ndarray))
 	histlen = np.array(bincount, copy=True)
 	np.subtract(histlen, 1, out=histlen)
