@@ -149,3 +149,20 @@ Run a first simulation with *cliplimitstddev* and apply the
 *cliplimitfixed* this one found in the next simulation. This resolves the
 problem, that the second simulation might find a different :math:`\sigma`.
 `applyCliplimitStddevAsFixedFrom` helps with that.
+
+.. _maxhistvalue:
+
+Maximum Histogram Value
+-----------------------
+Some functions do not do their core operation, but also trace how thier core
+operation would influence a full-scale result. So one always knows which
+bincount would be needed. The simulation mode (see `statstoc`) does not matter
+for the used datatype and some `int` is always used. The histogram axis here
+always has length 1.
+
+Still, this is not a single value, but instead some `numpy.array`. Imagine you
+have 128 MAC operations and chunking the MAC axis into computing 50, 50 and
+28 operations. A *[128,]* array is split into *[3, 50]*, which is 150 and
+not 128 elements. But some elements in the last of the three chunks
+(the *residual chunk*) can never be set and cannot contribute anything to the 
+full-scale. So the *maxhistvalue* in this chunk is smaller.
