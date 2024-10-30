@@ -1,14 +1,57 @@
+"""Functions related to the underlying histogram format.
+
+See `dataformat` for a description of the format and some terms."""
+
 import numpy as np
 from .array import normalizeAxes, padAxes
 
-#The histogram axis we in the end expect
 HIST_AXIS = -1
-ACT_AXIS = -3
-WEIGHT_AXIS = -2
+"""`int` : Default value for histogram axis.
+
+The last axis is commonly used. The axis is initialized there and stays there.
+Doe not matter what happens to the other axes, this index is always valid."""
+
 MAC_AXIS = -4
+"""`int` : Default value for axis over MAC operations.
+
+In an MVM application, different multiplication operations are seen when
+sweeping over this axis.
+
+In a series of sum/quantize steps, this dimension is usually the first one to
+reduce. AFterwards, the result shape has changed, this index is invalid, but
+also no more needed.
+"""
+
+ACT_AXIS = -3
+"""`int` : Default value for axis over different activation values."""
+
+WEIGHT_AXIS = -2
+"""`int` : Default value for axis over different weight values."""
+
 STAT_AXIS = 0
+"""`int` : Default value for axis over compuations in a statistic setup.
+
+See `statstoc`."""
 
 def checkStatisticsArgs(dostatistic, dostatisticdummy):
+	"""Validate flags activating statistic simulation.
+	
+	See `statstoc` for an explaantion of simulation modes.
+	
+	Parameters
+	----------
+	dostatistic : `bool`
+		If set, a *statistic* or *statisticdummy* simulation is run.
+		
+	dostatisticdummy : `bool`
+		If set, a *statisticdummy* simulation is run.
+
+	Raises
+	------
+	`ValueError`
+		If *dostatisticdummy* is set, but *dostatistic* is not. 
+
+	"""
 	if (not dostatistic) and dostatisticdummy:
 		raise ValueError(
 				"When setting dostatisticdummy, dostatistic also "
@@ -16,6 +59,27 @@ def checkStatisticsArgs(dostatistic, dostatisticdummy):
 		)
 		
 def histlenToBincount(histlen):
+	"""Turn a *histlen* to *bincount*.
+	
+	See `dataformat`.
+	
+	.. warning:
+		A *bincount* of *1* or *2* is translated to *histlen* *1* by
+		`bincountToHistlen`. But this function then returns *bincount*
+		*3* in both cases. So try to prevent back-and-forth conversions.
+
+	Parameters
+	----------
+	histlen : `int`
+		A positive *histlen* as in `dataformat`.
+
+	Returns
+	-------
+	bincount : `int`
+		A positive *bincount* as in `dataformat`.
+
+	"""
+	
 	returnpython = (not isinstance(histlen, np.ndarray))
 	bincount = np.array(histlen, copy=True)
 	np.multiply(bincount, 2, out=bincount)
