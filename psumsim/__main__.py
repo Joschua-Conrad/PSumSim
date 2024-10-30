@@ -4,6 +4,8 @@
 
 Use commandline and help switch or `commandlineinterface` for information on
 usage.
+
+This module can be run as script.
 """
 
 from psumsim.experiments import main
