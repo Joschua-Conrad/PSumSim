@@ -1095,6 +1095,10 @@ Is ignored if runnames are already given."""
 
 def main(args=None):
 	
+	#Needed to make multiprocess with pyinstaller work
+	#https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
+	multiprocessing.freeze_support()
+	
 	parser = getArgParser()
 	argvalues = parser.parse_args(args=args)
 	

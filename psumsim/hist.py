@@ -42,9 +42,11 @@ def checkStatisticsArgs(dostatistic, dostatisticdummy):
 	----------
 	dostatistic : `bool`
 		If set, a *statistic* or *statisticdummy* simulation is run.
+		See `statstoc`.
 		
 	dostatisticdummy : `bool`
 		If set, a *statisticdummy* simulation is run.
+		See `statstoc`.
 
 	Raises
 	------
@@ -416,6 +418,48 @@ def getHistLenFromMaxValues(
 		dostatisticdummy,
 		histaxis,
 	):
+	"""Derive *histlen* and *histvalues* from a known maximum of computations.
+	
+	See `maxhistvalue`.
+
+	Parameters
+	----------
+	target : `numpy.ndarray`
+		Asked for *ndim* and *shape*. Returned *histvalues* will be broadcastable
+		to this array.
+		
+	maxhistvalue : `numpy.ndarray`, `None`
+		The maximum magnitude of each histogram. As the values we return are not
+		histogram-wise, this is max'ed to a single value. So one could also
+		ask :code:`target.shape[histaxis]`, but that does not exist in
+		*dostatisticdummy* (see `statstoc`).
+	
+	dostatistic : `bool`
+		If set, a *statistic* or *statisticdummy* simulation is run.
+		See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		If set, a *statisticdummy* simulation is run.
+		See `statstoc`.
+		
+	histaxis : `int`
+		The axis along one finds histogram values. Often, `HIST_AXIS` is used.
+
+	Returns
+	-------
+	oldhistlen : `int`, `None`
+		The single *histlen*, in which all values of all histograms would
+		fit. Derived from *maxhistvalue* and if that is `None`, this is
+		`None`, too.
+		
+	oldhistvalues : `numpy.ndarray`, `None`
+		Returned by `getHistValues`. The values represented by bins.
+		Broadcastable to *target*. Derived from *target.shape* and NOT
+		*maxhistvalues*. `None`, if the histogram axis is a length-1 dummy
+		due to statistic simulation. The idea is simply that if one
+		has some `int` result and no histogram, one should not need the
+		*histvalues*.
+	"""
 	
 	histaxis, = normalizeAxes(axes=histaxis, referencendim=target.ndim)
 	
