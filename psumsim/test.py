@@ -8,9 +8,9 @@ import pytest
 
 from psumsim.array import normalizeAxes, getValueAlongAxis, padToEqualShape
 from psumsim.hist import histlenToBincount, bincountToHistlen, packHist, packStatistic, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
-from psumsim.simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized, generateSimulationOperands
+from psumsim.simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized, generateSimulationOperands, applyCliplimitStddevAsFixedFrom
 from psumsim.plot import plotHist
-from psumsim.experiments import applyCliplimitStddevAsFixedFrom, runAllExperiments, RunDescription						
+from psumsim.experiments import runAllExperiments, RunDescription						
 	
 class BaseTestCase:
 
@@ -3495,7 +3495,6 @@ class test_misc(BaseTestCase):
 		#Test OCC function across bitwidths
 		
 		abstol = 1e-6
-		maxiter = 100
 		
 		#This levels/value pair was read from the paper
 		paperlevels = 64
@@ -3507,8 +3506,9 @@ class test_misc(BaseTestCase):
 		lastocc = None	
 		occ = optimumClippingCriterion(
 				levels=levels,
-				abstol=abstol,
-				maxiter=maxiter,
+				#Go with the default values to check that they are chosen useful
+				#abstol=abstol,
+				#maxiter=maxiter,
 		)
 		assert type(occ) is \
 				float, \

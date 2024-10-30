@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 import math
+import copy
 from .array import normalizeAxes,padAxes, getValueAlongAxis, padToEqualShape, getValueFromBroadcastableIndex
 from .hist import packUnpackHistCommon, bincountToHistlen, histlenToBincount, checkStatisticsArgs, packHist, unpackHist, packStatistic, getHistLenFromMaxValues
 
@@ -2188,6 +2189,37 @@ def equalizeQuantizedUnquantized(
 	#return the two histograms which are ready to be plot in one
 	return unquantizedresult, processed
 
+def applyCliplimitStddevAsFixedFrom(groups, fromreturn, onlyatindices):
+	
+	cliplimitfixeds = tuple((i for i in fromreturn["cliplimitfixeds"]))
+	
+	if len(groups) != len(cliplimitfixeds):
+		raise IndexError(
+				f"Got {len(groups)} groups to write cliplimitfixeds to, but "
+				f"{len(cliplimitfixeds)} cliplimitfixeds were given.",
+				len(groups),
+				len(cliplimitfixeds),
+		)
+		
+	#Onlyidx can be a list of indices where to apply this. Or a single idx
+	#can be given. Only these indices are then processed.
+	if not isinstance(onlyatindices, (tuple, list, type(None))):
+		onlyatindices = (onlyatindices,)
+	
+	#COpy groups and where cliplimitstddev is set, unset and use cliplimitfixed
+	#from stochastic experiment. Because the fullscale will not be able
+	#to deduct a correct stddev
+	newgroups = copy.deepcopy(groups)
+	for groupidx, groupcliplimitfixed in enumerate(zip(newgroups, cliplimitfixeds)):
+		if (onlyatindices is not None) and (groupidx not in onlyatindices):
+			continue
+		group, cliplimitfixed = groupcliplimitfixed
+		if group["cliplimitstddev"] is not None:
+			group["cliplimitstddev"] = None
+			group["cliplimitfixed"] = cliplimitfixed
+			
+	return newgroups
+
 def computeSqnr(
 			unquantized,
 			quantized,
@@ -3077,7 +3109,42 @@ def simulateMvm(
 			mergevaluess=mergevaluess,
 	)
 
-def optimumClippingCriterion(levels, abstol, maxiter):
+def optimumClippingCriterion(levels, abstol=1e-6, maxiter=100):
+	"""Compute optimum clipping criterion.
+	
+	See `clipping` for why one maybe needs clipping in extend to quantization.
+	
+	This evaluates (17) from [OCC]_ to compute the optimum cliplimit. The found
+	value needs to be multiplied by the standard-deviation of the value which
+	is to be clipped. It also is dependent on the number of levels of the
+	quantizer following the clipping.
+	
+	The function needs multiple iterations to converge to a final value.
+	
+	Parameters
+	----------
+	levels : `int`
+		The number of levels in the quantizer following clipping. [OCC]_ uses
+		a bitwidth *B*.
+		
+	abstol : `float`, optional
+		The absolute tolerance t be achieved in the iterative computation.
+		The default is 1e-6.
+	maxiter : `int`, optional
+		Maximum number of iterations after which computation is interrupted.
+		The default is 100.
+
+	Raises
+	------
+	`RuntimeError`
+		If convergence within *abstol* and *maxiter* was not achieved.
+
+	Returns
+	-------
+	result : `float`
+		The *cliplimitstddev* (see `clipping`).
+
+	"""
 
 	#Value to start with. Clipping at two standard deviations is not bad.
 	lastresult = 2.

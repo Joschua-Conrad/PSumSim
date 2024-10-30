@@ -1,4 +1,3 @@
-import copy
 import collections
 import re
 import itertools
@@ -21,38 +20,6 @@ LEVELS = [None, 1, 3, 7, 15, 31,]
 RANDOM_BEHAVES = ["uniform", "norm", "truncnorm",]
 #Again, first list None to first generate references
 CLIP_LIMITS = [None, "occ", 3]
-
-def applyCliplimitStddevAsFixedFrom(groups, fromreturn, onlyatindices):
-	
-	cliplimitfixeds = tuple((i for i in fromreturn["cliplimitfixeds"]))
-	
-	if len(groups) != len(cliplimitfixeds):
-		raise IndexError(
-				f"Got {len(groups)} groups to write cliplimitfixeds to, but "
-				f"{len(cliplimitfixeds)} cliplimitfixeds were given.",
-				len(groups),
-				len(cliplimitfixeds),
-		)
-		
-	#Onlyidx can be a list of indices where to apply this. Or a single idx
-	#can be given. Only these indices are then processed.
-	if not isinstance(onlyatindices, (tuple, list, type(None))):
-		onlyatindices = (onlyatindices,)
-	
-	#COpy groups and where cliplimitstddev is set, unset and use cliplimitfixed
-	#from stochastic experiment. Because the fullscale will not be able
-	#to deduct a correct stddev
-	newgroups = copy.deepcopy(groups)
-	for groupidx, groupcliplimitfixed in enumerate(zip(newgroups, cliplimitfixeds)):
-		if (onlyatindices is not None) and (groupidx not in onlyatindices):
-			continue
-		group, cliplimitfixed = groupcliplimitfixed
-		if group["cliplimitstddev"] is not None:
-			group["cliplimitstddev"] = None
-			group["cliplimitfixed"] = cliplimitfixed
-			
-	return newgroups
-
 
 RUN_DESCRIPTION_CORE_CLS = collections.namedtuple(
 		typename="RUN_DESCRIPTION_CORE_CLS",
@@ -439,8 +406,6 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 		if cliplimit == "occ":
 			cliplimit = optimumClippingCriterion(
 					levels=levels,
-					abstol=1e-6,
-					maxiter=100,
 			)
 		processedcliplimitcases.append(cliplimit)
 		
