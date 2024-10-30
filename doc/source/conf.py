@@ -130,6 +130,15 @@ myst_substitutions = {
 	**substitutions
 }
 
+#Up to depth 3, markdown document headings automatically create targets.
+#That way, the markdown github-style cross-referenceing works in a .md
+#document displayed on github as well as in the built documentation.
+#So we do not have to add (label)= over markdown headings to reference them
+#then with {std:ref}`label`, which looks nice in HTML docs, but horrible on
+#Github. Because myst builds page after page, cross-referenceing into other
+#.md files as with [License](License.md) still does not work in html build.
+myst_heading_anchors = 3
+
 # -- Configure Extension -----------------------------------------------------
 
 autodoc_default_options = {

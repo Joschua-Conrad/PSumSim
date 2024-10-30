@@ -6,13 +6,11 @@ This project includes a Python package useful for simulating partial-sum
 quantization in matrix-vector multipliers (MVMs) using a histogram-based
 data format.
 
-(readmereviewers)=
 ## Information for Reviewers
 In case of acceptance of the provided manuscript, this repository is made available
 publicly under an open-source license. Currently, it is solely provided
 for the purpose of reviewing the manuscript at-hand. See {std:ref}`infolicense`.
 
-(readmeinstall)=
 ## How to Install
 This provides a python package. Downloading all files and using
 ```bash
@@ -60,7 +58,7 @@ running
 python3 -m pip install --editable ".[test]"
 ```
 and again possibly ommit `--editable` just like in
-{std:ref}`readmeinstall`. Then, run `psumsim_test`.
+[Installation Guidelines](#how-to-install). Then, run `psumsim_test`.
 Under the hood, *pytest* is used. Possible commandline arguments are descibed
 [here](https://docs.pytest.org/en/stable/how-to/usage.html). Common usage
 is to run a specific test case and exit immediately if that one fails,
@@ -73,7 +71,7 @@ To build the documentation website, first install dependencies using
 python3 -m pip install --editable ".[docs]"
 ```
 and again possibly ommit `--editable` just like in
-{std:ref}`readmeinstall`. Then, run
+[Installation Guidelines](#how-to-install). Then, run
 ```bash
 sphinx-build -b html -W -E doc/source doc/build
 ```
@@ -93,7 +91,7 @@ support by the state of Baden-Württemberg through bwHPC.
 ## ToDos for Publishing After Review
 
 - [ ] Update license
-- [ ] Fill {std:ref}`readmecite`
+- [ ] Fill [How to Cite](#how-to-cite)
 - [ ] Make repository public
 - [ ] Update repository link in manuscript
-- [ ] Remove {std:ref}`readmereviewers`
+- [ ] Remove [Information for Reviewers](#information-for-reviewers)
