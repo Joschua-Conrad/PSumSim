@@ -11,6 +11,27 @@ In case of acceptance of the provided manuscript, this repository is made availa
 publicly under an open-source license. Currently, it is solely provided
 for the purpose of reviewing the manuscript at-hand. See {std:ref}`infolicense`.
 
+## TL;DR
+Time is precious and you just want a one-liner to run in a Linux or MAC shell?
+Download the code, open a commandline in the directory with downloaded files
+and run
+```bash
+python3 -m pip install --upgrade pip && \
+python3 -m pip install --upgrade setuptools virtualenv wheel && \
+python3 -m virtualenv venv && \
+. venv/bin/activate && \
+python3 -m pip install --editable ".[docs,test]" && \
+sphinx-build -b html -E doc/source doc/build && \
+psumsim_test && \
+deactivate
+```
+
+This installs everything, runs tests and builds the documentation website
+in *docs/build*. You need Python3 to be installed already. Packages
+*virtualenv*, *pip*, *setuptools* and *wheel* are installed or upgraded
+system- or user-wide. But PSumSim and its dependencies are installed
+isolated into a folder *venv*.
+
 ## How to Install
 This provides a python package. Downloading all files and using
 ```bash
@@ -25,6 +46,12 @@ Also consider using a
 [virtual environment](https://docs.python.org/3/library/venv.html) to install
 packages into. This prevents any possible package-version clashes with things
 you already have installed.
+
+Also consider running
+```bash
+python3 -m pip install --upgrade pip setuptools wheel
+```
+to upgrade the Python package-managing before installing PSumSim.
 
 ## How to Use
 After installing, there are several things provided by PSumSim.
@@ -73,10 +100,10 @@ python3 -m pip install --editable ".[docs]"
 and again possibly ommit `--editable` just like in
 [Installation Guidelines](#how-to-install). Then, run
 ```bash
-sphinx-build -b html -W -E doc/source doc/build
+sphinx-build -b html -E doc/source doc/build
 ```
 in the main directory. After the command completes, you'll find the documentation
-as a website *docs/build/index.html*.
+as a website *docs/build/index.html*. Add *-W* to fail on warnings.
 
 (readmecite)=
 ## How to Cite
