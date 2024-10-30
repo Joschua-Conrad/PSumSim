@@ -1,6 +1,6 @@
 import numpy as np
 from .array import normalizeAxes
-from .hist import packUnpackHistCommon, unpackHist, packStatistic
+from .hist import getHistValues, unpackHist, packStatistic
 
 
 def plotHist(hist, histaxis, stataxis, refbincount, axorfigname, xlabel, ylabel, label):
@@ -38,7 +38,7 @@ def plotHist(hist, histaxis, stataxis, refbincount, axorfigname, xlabel, ylabel,
 		bincount = int(refbincount)
 		
 	#Get x axis values
-	histvalues = packUnpackHistCommon(
+	histvalues = getHistValues(
 			bincount=bincount,
 			axis=histaxis,
 			ndim=hist.ndim,

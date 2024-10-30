@@ -3,7 +3,7 @@ import scipy
 import math
 import copy
 from .array import normalizeAxes,padAxes, getValueAlongAxis, padToEqualShape, getValueFromBroadcastableIndex
-from .hist import packUnpackHistCommon, bincountToHistlen, histlenToBincount, checkStatisticsArgs, packHist, unpackHist, packStatistic, getHistLenFromMaxValues
+from .hist import getHistValues, bincountToHistlen, histlenToBincount, checkStatisticsArgs, packHist, unpackHist, packStatistic, getHistLenFromMaxValues
 
 def probabilisticAdder(
 		tosum,
@@ -136,7 +136,7 @@ def probabilisticAdder(
 	newbincount = histlenToBincount(histlen=newhistlen)
 	
 	#Which values the old histogram represented.
-	oldhistvalues = packUnpackHistCommon(
+	oldhistvalues = getHistValues(
 			bincount=oldbincount,
 			axis=histaxis,
 			ndim=tosum.ndim,
@@ -306,7 +306,7 @@ def probabilisticAdder(
 		#depending on whether histaxis sits before or after chunks.
 		totalvalues = np.multiply(totalvalues, oldhistvalues, dtype=oldhistvalues.dtype)
 		
-		newhistvalues = packUnpackHistCommon(
+		newhistvalues = getHistValues(
 				bincount=newbincount,
 				axis=histaxis,
 				ndim=tosum.ndim,
@@ -354,7 +354,7 @@ def probabilisticAdder(
 			target = np.zeros(targetshape, dtype=targetdtype)
 			#Our target must contain a hot value along its histogram axis.
 			#Otherwise we lack a 0-probability to shift up and down.
-			targetsetter = packUnpackHistCommon(
+			targetsetter = getHistValues(
 					bincount=newbincount,
 					axis=histaxis,
 					ndim=target.ndim,
@@ -369,7 +369,7 @@ def probabilisticAdder(
 		#where the 1 value sits
 		else:
 			#Create newhistvalues as 1D array
-			newhistvalues = packUnpackHistCommon(
+			newhistvalues = getHistValues(
 					bincount=newbincount,
 					axis=0,
 					ndim=1,
@@ -1207,7 +1207,7 @@ def quantizeClipScaleValues(
 			#We now also need to know the integer values of these new
 			#bins.
 			#Add lower dims to achieve compatibility with getValueALongAxis
-			newhistvalues = packUnpackHistCommon(
+			newhistvalues = getHistValues(
 					bincount=newbincount,
 					axis=histaxis,
 					ndim=thistarget.ndim,
@@ -1524,7 +1524,7 @@ def reduceSum(
 			#Refer to thishistax, which already has been updated,
 			#because target already had a new axis introduced.
 			if calledadder:
-				zerohistforpadding = packUnpackHistCommon(
+				zerohistforpadding = getHistValues(
 						bincount=target.shape[thishistax],
 						axis=thishistax,
 						ndim=target.ndim,
@@ -1581,7 +1581,7 @@ def reduceSum(
 		#Histogram values are well defined
 		elif thisposweights == "hist":
 			#Posweights are histogram. Prevent padding.
-			thisposweights = packUnpackHistCommon(
+			thisposweights = getHistValues(
 					bincount=positionweightslen,
 					axis=0,
 					ndim=1,
@@ -1622,7 +1622,7 @@ def reduceSum(
 		#There is only a single chunk and we weight it with posweights only
 		#then.
 		if (thischunkoffsetstep is not None) and (thischunkcount > 1):
-			thischunkoffsets = packUnpackHistCommon(
+			thischunkoffsets = getHistValues(
 					bincount=thischunkcount,
 					axis=0,
 					ndim=1,
@@ -1863,7 +1863,7 @@ def reduceSum(
 			truncatedbincount = histlenToBincount(histlen=truncatedhistlen)
 			
 			#These values are represented by current hist
-			newhistvalues = packUnpackHistCommon(
+			newhistvalues = getHistValues(
 					bincount=newbincount,
 					axis=0,
 					ndim=1,
@@ -1871,7 +1871,7 @@ def reduceSum(
 					padupper=True,
 			)
 			#And these by the shortened version
-			truncatedhistvalues = packUnpackHistCommon(
+			truncatedhistvalues = getHistValues(
 					bincount=truncatedbincount,
 					axis=0,
 					ndim=1,
@@ -2254,7 +2254,7 @@ def computeSqnr(
 	)
 	
 	histlen = bincountToHistlen(bincount=bincount)
-	histvalues = packUnpackHistCommon(
+	histvalues = getHistValues(
 			bincount=bincount,
 			axis=histaxis,
 			ndim=unquantized.ndim,

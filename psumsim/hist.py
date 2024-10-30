@@ -137,7 +137,7 @@ def bincountToHistlen(bincount):
 		badhistlen = int(round(badhistlen.item()))
 	return histlen
 		
-def packUnpackHistCommon(bincount, axis, ndim, padlower, padupper):
+def getHistValues(bincount, axis, ndim, padlower, padupper):
 	#Get broadcastable matrix which notes numbers which notes which numbers
 	#make it where in the histogram.
 	#THe bincount is the length of the full histogram with positive and
@@ -197,7 +197,7 @@ def unpackHist(tounpack, bincount, axis):
 				maxval,
 		)
 	
-	histindex = packUnpackHistCommon(
+	histindex = getHistValues(
 			bincount=bincount,
 			axis=axis,
 			ndim=tounpack.ndim,
@@ -224,7 +224,7 @@ def packHist(topack, axis, keepdims, strict):
 	#Get number of histogram bins from histogram axis.
 	bincount = topack.shape[axis]
 	
-	histindex = packUnpackHistCommon(
+	histindex = getHistValues(
 			bincount=bincount,
 			axis=axis,
 			ndim=topack.ndim,
@@ -312,7 +312,7 @@ def getHistLenFromMaxValues(
 	#bincount retrieved from maxhistvalue, because that might be shorter.
 	if canusehistax:
 		#Also pad lower axes, otherwise axis indices do not work.
-		oldhistvalues = packUnpackHistCommon(
+		oldhistvalues = getHistValues(
 				bincount=target.shape[histaxis],
 				axis=histaxis,
 				ndim=target.ndim,
