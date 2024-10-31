@@ -932,13 +932,58 @@ def probabilisticAdder(
 
 def getHistStddev(
 		target,
-		maxhistvalue,
 		dostatistic,
 		dostatisticdummy,
 		histaxis,
 		stataxis,
 		stddevdtype,
 	):
+	"""Compute the standard deviation of a histogram.
+	
+	Note that the mean is always assumed to be *0* across all histograms.
+
+	Parameters
+	----------
+	target : `numpy.ndarray`
+		Compute a standard deviation for each histogram given here. All
+		simulation modes as described in `statstoc` are allowed.
+		
+	dostatistic : `bool`
+		Simulation mode. See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		Simulation mode. See `statstoc`.
+		
+	histaxis : `int`
+		Histogram axis. Often, `HIST_AXIS` is used. In *dostatistic* and
+		*dostatisticdummy*, this is reduced and numbers are converted to `int`
+		(see `packHist`). In *dostochastic*, this is a discrete PDF whose
+		standard deviation we compute.
+		
+	stataxis : `int`
+		The statistic axis. Often, `STAT_AXIS` is used. In *dostatistic* and
+		*dostatisticdummy* (see `statstoc`), we really have a stastistic test
+		set to compute the standard deviation along.
+		
+	stddevdtype : `type`
+		Something `numpy.array` would understand as *dtype*. Even in
+		*dostatistic* and *dostatisticdummy*, where we use `int` and `bool` in
+		*target*, the standard deviation is some floating-point dtype. Which
+		one is determined. Just pass `str` "float" to get the best
+		platform-dependent dtype.
+
+	Raises
+	------
+	`IndexError`
+		If *histaxis* and *stataxis* are the same.
+
+	Returns
+	-------
+	stddev : `numpy.ndarray`
+		Dtype *stddevdtype*. *histaxis* and *stataxis* are kept, but have
+		length *1*.
+
+	"""
 	
 	histaxis, = normalizeAxes(axes=histaxis, referencendim=target.ndim)
 	stataxis, = normalizeAxes(axes=stataxis, referencendim=target.ndim)
@@ -1024,9 +1069,9 @@ def getHistStddev(
 		
 		#This is here only called in stochastic computation and we
 		#then are protected against this method returning None anywhere.
-		oldhistlen, oldhistvalues = getHistLenFromMaxValues(
+		_, oldhistvalues = getHistLenFromMaxValues(
 				target=target,
-				maxhistvalue=maxhistvalue,
+				maxhistvalue=None,
 				dostatistic=dostatistic,
 				dostatisticdummy=dostatisticdummy,
 				histaxis=histaxis,
@@ -1083,12 +1128,116 @@ def quantizeClipScaleValues(
 		cliplimitfixed,
 		valuescale,
 		histaxis,
-		stataxis,
 		scaledtype,
 	):
+	"""Apply quantization, clipping and scaling.
+	
+	See `quantization` and `clipping`.
+	
+	The functionality is merged, because this first computes a vector noting
+	which original bins make it where into the quantized/clipped/scaled
+	histogram and then using that lookup only once.
+
+	Parameters
+	----------
+	toprocess : `numpy.ndarray`
+		The array to quantize, scale and clip.
+		All simulation modes as described in `statstoc` are allowed.
+	
+	maxhistvalue : `numpy.ndarray`
+		See `maxhistvalue`. This is proessed like *toprocess* to keep the two
+		synchronous, but is also needed to validate *mergevalues* and to
+		round *cliplimit* as described in `clipping`.
+		
+	mergevalues : `int`, `float`, `None`
+		Parameterizes quantization.
+		If positive, is used as described in `quantization` to merge bins by
+		dividing and rounding. If negative, describes the *histlen* (so the
+		maximum magnitude) of the quantized histogram. Values on range *(-1;1)*
+		or larger than the old histogram length
+		would leave us with less than *3* bins or would have no effect.
+		They raise an exception.
+		
+	dostatistic : `bool`
+		Simulation mode. See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		Simulation mode. See `statstoc`.
+		
+	cliplimitfixed : `float`, `None`
+		A fixed cliplimit (see `clipping`). If the cliplimit is relative to
+		the standard devation, this already should be the product of a
+		*cliplimitstddev* and a standard deviation (see `getHistStddev`)
+		divided by an old full-scale.
+		Pass only values on a arange *(0;1]*. Values being larger than or
+		equal to *1* effectively do nothing. Too small values raise an
+		exception.
+		
+	valuescale : `float`, `None`
+		A scale to apply on values. Also invokes `round` to get an integer
+		number of bins. Is not used in `simulateMvm` and solely provided for
+		consistency. Usually, this is used to scale histograms up to more
+		bins, which *cliplimit* cannot do. Can even do sign flips by passing
+		negative values. Is not checked at all.
+		
+		.. note::
+			If you reduce a bincount by using *cliplimitfixed*, unclipped bins
+			remain as-is. If you do the same with a *valuescale*, you merge
+			lower bins like you would do with quantization.
+			
+	histaxis : `int`
+		Histogram axis. Often, `HIST_AXIS` is used.
+		
+	scaledtype : `type`
+		Something `numpy.array` would understand as *dtype*. All the clipping
+		and scaling can leave us with bin values being non-integer, at least
+		until `round` is used. For these values, an intermediate floating-point
+		dtype is needed. Just pass `str` "float" to get the best
+		platform-dependent dtype.
+
+	Raises
+	------
+	`ValueError`
+		
+		- If *mergevlaues* was passed, but *maxhistvalue* is `None`.
+		
+		- If *cliplimitfixed* AND *valuescale* require some scaling.
+		
+		- If *mergevalues* is outside its valid range.
+		
+		- If *cliplimitfixed* is zero or smaller.
+
+	Returns
+	-------
+	target : `numpy.ndarray`
+		Quantized, clipped and scaled histograms. The dtype is kept. The
+		*histaxis* is shorter due to clipping/quantization or longer due to
+		*valuescale*.
+		
+	maxhistvalue : `numpy.ndarray`, `None`
+		Synchronous to *target* as described in `maxhistvalue`. Denotes
+		the scaled, clipped and quantized new full-scale. If the input
+		param was `None`, the result is `None` as well.
+		
+	cliplimitfixed : `float`, `None`
+		*cliplimitfixed* undergoes some `round` to lead to an integer *bincount*
+		(see `clipping`). This value is very similar to the input parameter,
+		but this value would lead already to the rounded bincount. So this is
+		the cliplimit which actually was applied.
+		
+	mergevaluesret : `float`, `None`
+		Similar to *cliplimitfixed* return value. *mergevalues* also needs to
+		lead to an integer bincount and this *mergevalues* already leads
+		directly to an integer bincount. If you passed a negative
+		*mergevalues*, this is the positive value leading to the same result.
+		Note that quantization definition is for positive *mergevalues*
+		(see `quantization`). If `clipping` replaced or reduced quantization,
+		that is also reflected here.
+
+	"""
+	
 	
 	histaxis, = normalizeAxes(axes=histaxis, referencendim=toprocess.ndim)
-	stataxis, = normalizeAxes(axes=stataxis, referencendim=toprocess.ndim)
 	
 	checkStatisticsArgs(
 			dostatistic=dostatistic,
@@ -1123,6 +1272,15 @@ def quantizeClipScaleValues(
 				cliplimitfixed,
 				valuescale,
 		)
+		
+	#If given, mergevalues as well as cliplimitfixed and valuescale are
+	#float. Extract that from np value
+	if mergevalues is not None:
+		mergevalues = float(np.squeeze(mergevalues).item())
+	if cliplimitfixed is not None:
+		cliplimitfixed = float(np.squeeze(cliplimitfixed).item())
+	if valuescale is not None:
+		valuescale = float(np.squeeze(valuescale).item())
 	
 	#Mergevalues needs to be outside the (-1;1) range and we cannot merge
 	#all bins intoa  single one, as there need to be at least two
@@ -1142,14 +1300,12 @@ def quantizeClipScaleValues(
 				mergevalues,
 		)
 		
-	#If given, mergevalues as well as cliplimitfixed and valuescale are
-	#float. Extract that from np value
-	if mergevalues is not None:
-		mergevalues = float(np.squeeze(mergevalues).item())
-	if cliplimitfixed is not None:
-		cliplimitfixed = float(np.squeeze(cliplimitfixed).item())
-	if valuescale is not None:
-		valuescale = float(np.squeeze(valuescale).item())
+	#Ciplimitfied shall not provoke sign flip or div by zero
+	if (cliplimitfixed is not None) and (cliplimitfixed <= 0):
+		raise ValueError(
+				f"cliplimitfixed is {cliplimitfixed} which is not above 0.",
+				cliplimitfixed,
+		)
 		
 	#Turn negative values into positive ones
 	if (mergevalues is not None) and (mergevalues <= -1):
@@ -1169,7 +1325,7 @@ def quantizeClipScaleValues(
 	#below 1. And also regard, that a cliplimitfixed below 1.
 	#changes nothing.
 	if (mergevalues is not None) and (cliplimitfixed is not None):
-		mergevalues = float(mergevalues) / max(float(cliplimitfixed), 1.)
+		mergevalues = float(mergevalues) / max(cliplimitfixed, 1.)
 		mergevalues = max(mergevalues, 1.)
 	
 	#We will now scale and round target and maxhistvalue. We implement
@@ -2088,7 +2244,6 @@ def reduceSum(
 		
 		stddev = getHistStddev(
 				target=target,
-				maxhistvalue=maxhistvalue,
 				dostatistic=dostatistic,
 				dostatisticdummy=dostatisticdummy,
 				histaxis=histaxis,
@@ -2141,7 +2296,6 @@ def reduceSum(
 				cliplimitfixed=cliplimitfixed,
 				valuescale=None,
 				histaxis=histaxis,
-				stataxis=stataxis,
 				scaledtype=scaledtype,
 		)
 			
@@ -2300,7 +2454,6 @@ def equalizeQuantizedUnquantized(
 			cliplimitfixed=None,
 			valuescale=introducedmergevalues,
 			histaxis=histaxis,
-			stataxis=stataxis,
 			scaledtype="float",
 	)
 	

@@ -455,7 +455,8 @@ def getHistLenFromMaxValues(
 	oldhistvalues : `numpy.ndarray`, `None`
 		Returned by `getHistValues`. The values represented by bins.
 		Broadcastable to *target*. Derived from *target.shape* and NOT
-		*maxhistvalues*. `None`, if the histogram axis is a length-1 dummy
+		*maxhistvalues* to guarantee broadcastability.
+		`None`, if the histogram axis is a length-1 dummy
 		due to statistic simulation. The idea is simply that if one
 		has some `int` result and no histogram, one should not need the
 		*histvalues*.
