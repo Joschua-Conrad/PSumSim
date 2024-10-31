@@ -1,3 +1,5 @@
+"""Functions to simulate MVM applications and for using PSumSim as a package."""
+
 import numpy as np
 import scipy
 import math
@@ -17,6 +19,133 @@ def probabilisticAdder(
 		dostatisticdummy,
 		allowoptim,
 ):
+	"""Sum power of one axis into the histogram axis.
+	
+	Parameters
+	----------
+	tosum : `numpy.ndarray`
+		Sum these value. Simulation modes *dostochastic* and *dostatisticdummy*
+		(see `statstoc`) are supported.`
+		
+	reduceaxis : `int`
+		One axis to reduce/sum into histogram axis. It is assumed that values
+		along this axis are stochastically independent.
+		
+	histaxis : `int`
+		Where the already existing histogram axis is found. Its values will
+		be interpreted as described by `getHistValues`. The sum along this
+		axis MUST yield *1.0*.
+		
+	positionweights : `numpy.ndarray`
+		Weights to use along *reduceaxis* to weight summands. Must be a 1D
+		array with same length as *histaxis* in *tosum*. Dtype must be `int`.
+		While summing along `MAC_AXIS`, one probably uses only value *1* here.
+		But when summing e.g. along ativation values, this is some
+		`numpy.arange`.
+	
+	positionweightsonehot : `bool`
+		If set, describes that along *reduceaxis*, the number of occurences
+		of values happening in an actual computation is limited. For example,
+		if first `MAC_AXIS` is reduced, the histogram describes for each
+		activation value and for its possible occurence counts the
+		probabilities. If there are 128 MAC operations, it is not possible
+		that activation value 1 is set 128 times and value 2 also 128 times.
+		So when reducing `ACT_AXIS`, set this parameter. The expected maximum
+		value of the resulting histogram is then reduced to 128 activations
+		having value 2, resulting in a maximum outcome
+		:math:`128 \times 2 = 256`
+		
+		However, the computation :math:`128 \times 1 + 64 \times 2 = 256` is not
+		outside the maximum range. The simulated probability of this impossible
+		case is non-zero. This leads to one of the `limitations`.
+		
+		As a rule of thumb: set this for `ACT_AXIS` and `WEIGHT_AXIS` or if
+		you look at the output-histogram length and think it is too long.
+		
+	disablereducecarry : `bool`
+		If set, the occurences along *reduceaxis* are actually exclusive. This
+		is a more extreme *positionweightsonehot*: not only the expected
+		maximum value is limited, but along all histograms reduced, only one can
+		have a non-zero value. So values along *reduceaxis* are not added to
+		a running result one-by-one, but probabilities leading to one result
+		bin can just be added up, because they are exclusive.
+		
+		To stay with the example above, after having `MAC_AXIS` reduced and while
+		reducing `ACT_AXIS`, there still could be a totally valid summation
+		:math:`64 \times 1 + 64 \times 2 = 192`. So along *reduceaxis*
+		(which here holds value *1* and *2*) it is possible that activation *1*
+		occured some times along MACs and value *2* also occured some times.
+		They are not exclusive and *disablereducecarry* should not be set.
+		
+		BUt if you first reduce `ACT_AXIS` and `WEIGHT_AXIS` before reducing
+		`MAC_AXIS`, you can set this. Because in reality,
+		`ACT_AXIS` and `WEIGHT_AXIS` describe a one-hot 2D matrix, where in
+		reality one digit will occur saying "this MAC multiplied this weight
+		and this activation value". *disablereducecarry* should be set then.
+		
+		As a rule of thumb, set this when first reducing `ACT_AXIS` and
+		`WEIGHT_AXIS` or when expecting that of all combined histograms,
+		only one value in reality will be set.
+	
+	chunkoffsets : `numpy.ndarray`
+		Must be as long as the *overchunkaxis* dimension.
+		See `chunks`. In principle, all axes besides *histaxis* and *reduceaxis*
+		are treated in parallel and are kept like `probabilisticAdder` would
+		have been called independently along them. But along one axis, one
+		can add a rising offset to *positionweights*. In the end, we iterate
+		over chunks and their offsets and over *reduceaxis* and over old
+		histogram values and if the bin is set, we add
+		:math:`\text{histvalue} \times (\text{positionweight} + \text{chunkoffset})`.
+		The *chunkoffsets* are thereby usefule when having an axis like
+		`ACT_AXIS` and chunking it. If we originally had 5 levels with
+		*positionweights* *[-2, -1, 0, +1, +2]* and we chunk that into two
+		chunks, we by default would get two chunks of length 3 with
+		*positionweights* *[-1, 0, +1]*. Reducing the chunks afterwards simply
+		gives wrong results. But we can use chunkoffsets *[-1, +2]* to get
+		a sum of *positionweights* and *chunkoffsets* resulting into
+		*[-2, -1, 0]* for first chunk and *[+1, +2, +3]* for second chunk.
+		Now, each element in each chunk gets a correct weight. The uppermost
+		weight *+3* is unsued, because it sits in a *residual chunk*
+		(see `chunks`).
+		
+		Just use some `numpy.zeros` here, except when having used chunking on
+		an axis, which needs non-uniform *positionweights*.
+	
+	overchunkaxis : `int`
+		The axis over which chunks are given. Add a length-1 dim if needed.
+		
+	dostatisticdummy : `bool`
+		See `statstoc`. Note that this function cannot run *dostatistic*
+		simulations, as it always works on histograms.
+		
+	allowoptim : `bool`
+		If set, runtime of this function can be accelerated by drawing the
+		results from a binomial distribution and by directly summing-up
+		probabilities and not histograms if *disablereducecarry* is set.
+		Thereby, no error is made. Unset this only for debugging. In that case,
+		the result is always created by iterating over chunks, *reduceaxis*
+		and over *histaxis*, which simply takes time.
+
+	Raises
+	------
+	`IndexError`
+		If *reduceaxis*, *histaxis* and *overchunkaxis* are not three different
+		values.
+		
+	`TypeError`
+		If *positionweights* or *chunkoffsets* are not of some `int` dtype.
+		
+	`ValueError`
+		If *chunkoffsets* of *positionweights* have a bad shape.
+
+	Returns
+	-------
+	target : `numpy.ndarray`
+		Result with same dtype as *tosum*. *histaxis* is longer here, but still
+		a sum over it gives *1.0*. Length of *reduceaxis* is 1.
+
+	"""
+	
 	#Historgrams do not include a 0 bin, this is implciit because the
 	#sum over probabilities must be 1.
 	#We always keep axes here to not get confused with axis indices.
