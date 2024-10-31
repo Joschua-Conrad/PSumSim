@@ -31,7 +31,7 @@ def mainTest(argv=None, forwardsysexit=True):
 	`pytest`, `pytest.main` finds :py:mod:`psumsim` and imports it AFTER having
 	*stdout* updated.
 	
-	.. note:
+	.. note::
 		Check `pytest.main`. This is not intended to be called multiple times
 		from the same process.
 

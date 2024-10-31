@@ -14,7 +14,7 @@ a lot. If arrays are indexed (see utilities in `array`), most functions do
 not return a copy, but a *view* on the indexed data without copying it. This
 is faster and consumes less memory.
 
-.. warning:
+.. warning::
 	If you change a view, the change will reflect in the original
 	`numpy.ndarray`.
 	

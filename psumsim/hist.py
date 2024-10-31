@@ -65,7 +65,7 @@ def histlenToBincount(histlen):
 	
 	See `dataformat`.
 	
-	.. warning:
+	.. warning::
 		A *bincount* of *1* or *2* is translated to *histlen* *1* by
 		`bincountToHistlen`. But this function then returns *bincount*
 		*3* in both cases. So try to prevent back-and-forth conversions.
