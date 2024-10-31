@@ -1748,7 +1748,7 @@ def reduceSum(
 		
 	Raises
 	------
-	`Index Error`
+	`IndexError`
 		
 		- If *stataxis*, *histaxis* or any *reduceaxes* are not distinct.
 		
