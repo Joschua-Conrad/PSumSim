@@ -948,6 +948,14 @@ def getHistStddev(
 			dostatisticdummy=dostatisticdummy,
 	)
 	
+	if histaxis == stataxis:
+		raise IndexError(
+				f"histaxis {histaxis} and stataxis {stataxis} cannot be the "
+				f"same.",
+				histaxis,
+				stataxis,
+		)
+	
 	#Length of stat axis for variance computation
 	statlen = target.shape[stataxis]
 	
@@ -1468,7 +1476,7 @@ def reduceSum(
 			normalizevalues
 		
 	if histaxis == stataxis:
-		raise ValueError(
+		raise IndexError(
 				f"Statistics and histogram axis are not allowed to be the "
 				f"same, but are {stataxis} and {histaxis}.",
 				stataxis,
@@ -1519,7 +1527,7 @@ def reduceSum(
 			)
 			
 		if stataxis == thisreduceax:
-			raise ValueError(
+			raise IndexError(
 					f"Statistics and reduce axis are not allowed to be the "
 					f"same, but are {stataxis} and {thisreduceax}.",
 					stataxis,
