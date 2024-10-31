@@ -1633,35 +1633,39 @@ def reduceSum(
 		See `maxhistvalue`. This is updated just like *tosum*. Could be ommitted,
 		but some features then might raise exceptions.
 			
-	chunksizes : `None`, ((`tuple` or `list`) of (`int` or `None`))
+	chunksizes : `None`, ((`tuple` or `list`) of (`int` or `None`)), optional
 		The length of one chunk to chunk each axis. `None` disables chunking
 		and reduces a full axis. `None` can be given once for all axes or
-		for single axes.
+		for single axes. The default uses no chunking.
 		
-	docreatehistaxis : `bool`
+	docreatehistaxis : `bool`, optional
 		If set, *histaxis* is added before doing anything else. Needed in the
 		very first call of this function in a MVM simulation.
+		The default assumes the axis exists already.
 		
-	mergevalues : `float`, `int`, `None`
+	mergevalues : `float`, `int`, `None`, optional
 		See `quantization`. Parameterizes quantization in
 		`quantizeClipScaleValues` done once at the end.
+		The default uses no quantization.
 		
-	cliplimitstddev : `float`, `int`, `None`
+	cliplimitstddev : `float`, `int`, `None`, optional
 		See `clipping`. This cliplimit is interpreted as multiple of standard
 		deviations. `getHistStddev` is invoked automatically. The value is
 		automatically clipped to a valid range, which does not leave you with
 		less than *3* bins. But values being so large, that they show no
 		effect are accpeted silently.
+		The default uses no clipping.
 		
-	cliplimitfixed : `float`, `int`, `None`
+	cliplimitfixed : `float`, `int`, `None`, optional
 		See `clipping`. Instead of *cliplimitstddev*, one can pass a direct
 		rule telling by which factor to reduce the bincount. Without any
 		standard deviation. This is then directly passed to
 		`quantizeClipScaleValues`. Use this to make two experiments comparable
 		as described in `clipping`. In that case, use
 		`applyCliplimitStddevAsFixedFrom`.
+		The default uses no clipping.
 		
-	mergeeffortmodel : `None`, `callable`, *"digital"*, *"analog"*
+	mergeeffortmodel : `None`, `callable`, *"digital"*, *"analog"*, optional
 		If not `None`, this is used to compute some quantization-effort metric.
 		A `callable` just gets a `numpy.ndarray` of `int` with the *stataxis*
 		made *1* (because we want to know the cost per one computation).
@@ -1678,7 +1682,9 @@ def reduceSum(
 		Note that residual chunks (see `chunks`) will possibly give a smaller
 		number of levels and hence smaller effort.
 		
-	positionweightsonehot : ((`tuple` or `list`) of (`bool` or `None`)), `None`
+		The default adds no merge-effort model.
+		
+	positionweightsonehot : ((`tuple` or `list`) of (`bool` or `None`)), `None`, optional
 		One *positionweightsonehot* for each reduced axis. See `probabilisticAdder`.
 		These determine computation of the full-scale.
 		`None` is the same like passing `None` for all axes.
@@ -1692,7 +1698,9 @@ def reduceSum(
 			  which automatically makes reduction of `WEIGHT_AXIS` and
 			  `ACT_AXIS` one-hot.
 			  
-	chunkoffsetsteps : ((`tuple` or `list`) of (`int` or `None`)), `None`
+		The default uses `None` on each axis.
+			  
+	chunkoffsetsteps : ((`tuple` or `list`) of (`int` or `None`)), `None`, optional
 		Used to derive one *chunkoffsets* for each reduced axis.
 		See `probabilisticAdder`.
 		These are added on *positionweights* depending on where in the chunk
@@ -1710,7 +1718,9 @@ def reduceSum(
 			  chunked a histogram axis, pass the chunksize here when adding the
 			  chunks later up.
 			  
-	disablereducecarries : ((`tuple` or `list`) of (`bool` or `None`)), `None`
+		The default uses `None` on each axis.
+			  
+	disablereducecarries : ((`tuple` or `list`) of (`bool` or `None`)), `None`, optional
 		One *disablereducecarry* for each reduced axis. See `probabilisticAdder`.
 		These determine stochastic dependecy of summands.
 		`None` is the same like passing `None` for all axes.
@@ -1722,14 +1732,80 @@ def reduceSum(
 			- `None` equals `False`. SO by default, this (rarely used) feature
 			  is disabled.
 			  
-	allowoptim : `bool`
-		Forwarded to `probabilisticAdder`.
+		The default uses `None` on each axis.
+			  
+	allowoptim : `bool`, optional
+		Forwarded to `probabilisticAdder`. The default allows optimizations.
 		
-	selfcheckindummy : `bool`
+	selfcheckindummy : `bool`, optional
 		If set and *dostatisticdummy* is set, a *dostatistic* (see `statstoc`)
 		simulation is run in parallel to `probabilisticAdder`. It is then
 		asserted, that both methods yield same results. That is nice for
 		checking that `probabilisticAdder` is parameterized correctly.
+		In other simulation modes, this switch has no effect.
+		The default enables self-check.
+		
+		
+	Raises
+	------
+	`Index Error`
+		
+		- If *stataxis*, *histaxis* or any *reduceaxes* are not distinct.
+		
+		- If *positionweights*, *positionweightsonehot*, *disablereducecarries*,
+		  *chunkoffsetsteps* or *chunksizes* are not `None`, but have different
+		  `len` compared to *reduceaxes*.
+	
+	`ValueError`
+		
+		- If *cliplimitstddev* and *cliplimitfixed* are enabled.
+		
+		- If a *chunksizes* element is smaller than *1*.
+		
+		- If a *positionweights* element is `numpy.ndarray` of bad shape.
+		
+		- If *maxhistvalue* is needed, but is `None`.
+		
+	`RuntimeError`
+	
+		- If broadcasted chunkoffsets and positionweights are not broadcastable
+		  to *maxhistvalue*.
+		  
+		- If *dostatistic* found an out-of-bound result compared to
+		  *maxhistvalue*.
+		  
+		- If *selfcheckindummy* failed.
+		
+	Returns
+	-------
+	target : `numpy.ndarray`
+		Reduced array. Same dtype as *tosum*. *histaxis* was possibly added,
+		or at least grew. *reduceaxes* vanished, except if they were chunked
+		using *chunksize*. In that case, they are as long as the minimum
+		chunk count required to not loose bins.
+		
+	mergeeffort : `float`, `None`
+		If *mergeeffortmodel* was given, this is the mergeeffort.
+		
+	maxhistvalue : `numpy.ndarray`
+		See `maxhistvalue`. If *maxhistvalue* was given as parameter, it was
+		updated synchronous to *tosum* and now contains the full-scale of
+		*target*.
+		
+	cliplimitfixed : `float`, `None`
+		If *cliplimitfixed* or *cliplimitstddev* was set, `quantizeClipScaleValues`
+		returned this as the actually applied limit, which would require no
+		`round` to get integer bins. Can be used in consecutive calls of
+		`reduceSum` and with `applyCliplimitStddevAsFixedFrom` to apply same
+		cliplimits in different experiments. This then disables a possible
+		statistic uncertainty in estimating standard deviations. See
+		`clipping`.
+	
+	mergevalues : `float`, `None`
+		Returned by `quantizeClipScaleValues` and notes the actual, always
+		positive quantization rule applied. Includes reduced quantization if
+		clipping already reduces bincounts.
+	
 	"""
 	
 	checkStatisticsArgs(
@@ -2261,7 +2337,7 @@ def reduceSum(
 			outofbound = (targetuint > maxhistvalue) | (targetuint < -maxhistvalue)
 			outofboundcount = np.count_nonzero(outofbound, axis=None, keepdims=False)
 			if outofboundcount > 0:
-				raise ValueError(
+				raise RuntimeError(
 						f"{outofboundcount} digits are outside the expected "
 						f"value range.",
 						outofboundcount,
