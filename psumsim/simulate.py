@@ -137,6 +137,10 @@ def probabilisticAdder(
 		
 	`ValueError`
 		If *chunkoffsets* of *positionweights* have a bad shape.
+		
+	`RuntimeError`
+		If the new *histlen* is chosen bad, because result bins get shifted
+		out.
 
 	Returns
 	-------
@@ -786,7 +790,7 @@ def probabilisticAdder(
 									keepdims=False,
 							)
 							if outofboundcount > 0:
-								raise ValueError(
+								raise RuntimeError(
 										f"{outofboundcount} digits are shifted "
 										f"outside the known value range.",
 										outofboundcount,
@@ -1130,6 +1134,7 @@ def quantizeClipScaleValues(
 		histaxis,
 		scaledtype,
 	):
+	
 	"""Apply quantization, clipping and scaling.
 	
 	See `quantization` and `clipping`.
@@ -1137,6 +1142,11 @@ def quantizeClipScaleValues(
 	The functionality is merged, because this first computes a vector noting
 	which original bins make it where into the quantized/clipped/scaled
 	histogram and then using that lookup only once.
+	
+	Most parameters are python scalars. It is not possible to set different
+	quantization/clipping/scaling for all the given histograms. That is because
+	they are supposed to be added in the end, without adding some unexpected
+	weighting/scaling to summands.
 
 	Parameters
 	----------
@@ -1146,8 +1156,10 @@ def quantizeClipScaleValues(
 	
 	maxhistvalue : `numpy.ndarray`
 		See `maxhistvalue`. This is proessed like *toprocess* to keep the two
-		synchronous, but is also needed to validate *mergevalues* and to
-		round *cliplimit* as described in `clipping`.
+		synchronous, but is also needed to validate *mergevalues*, to
+		round *cliplimit* as described in `clipping` and to be able to
+		interpret *cliplimitfixed* as relative to a fullscale, to give
+		even residual chunks (see `chunks`) the same clip rule.
 		
 	mergevalues : `int`, `float`, `None`
 		Parameterizes quantization.
@@ -1164,16 +1176,15 @@ def quantizeClipScaleValues(
 	dostatisticdummy : `bool`
 		Simulation mode. See `statstoc`.
 		
-	cliplimitfixed : `float`, `None`
+	cliplimitfixed : `float`, `int`, `None`
 		A fixed cliplimit (see `clipping`). If the cliplimit is relative to
 		the standard devation, this already should be the product of a
 		*cliplimitstddev* and a standard deviation (see `getHistStddev`)
 		divided by an old full-scale.
-		Pass only values on a arange *(0;1]*. Values being larger than or
-		equal to *1* effectively do nothing. Too small values raise an
-		exception.
+		Pass only values larger than *1*. Values below *1* have no effect
+		and values equal or below *0* raise an exception.
 		
-	valuescale : `float`, `None`
+	valuescale : `float`, `int`, `None`
 		A scale to apply on values. Also invokes `round` to get an integer
 		number of bins. Is not used in `simulateMvm` and solely provided for
 		consistency. Usually, this is used to scale histograms up to more
@@ -1558,12 +1569,169 @@ def reduceSum(
 		histaxis,
 		maxhistvalue,
 		stataxis,
-		#If histaxis is created, all passed axis indices shall match
-		#axes AFTER adding histaxis.
 		docreatehistaxis,
 		mergeeffortmodel,
 		allowoptim,
-):
+	):
+	"""Sum a few axes into histogram and then quantize.
+	
+	This bundles multiple calls to `probabilisticAdder` and one call to
+	`quantizeClipScaleValues`.
+	
+	`probabilisticAdder` does not support simulation mode *dostatistic*
+	(see `statstoc`), but that mode is implemented in this function.
+	
+	A word on axes indices: even though axes are reduced step by step, the
+	dimensions are squeezed and removed only at the very end.
+	So an axis index refers to what array you give as an input and not to the
+	shape of some intermediate result. Also, all indices refer to an array
+	where *histaxis* already exists, even if this call creates it. 
+	
+	Parameters
+	----------
+	tosum : `numpy.ndarray`
+		This array i to be summed.
+		All simulation modes as described in `statstoc` are allowed.
+		
+	dostatistic : `bool`
+		Simulation mode. See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		Simulation mode. See `statstoc`.
+		
+	selfcheckindummy : `bool`
+		If set and *dostatisticdummy* is set, a *dostatistic* (see `statstoc`)
+		simulation is run in parallel to `probabilisticAdder`. It is then
+		asserted, that both methods yield same results. That is nice for
+		checking that `probabilisticAdder` is parameterized correctly.
+		
+	reduceaxes : `int`, ((`tuple` or `list`) of `int`)
+		The axes for which `probabilisticAdder` shall be called.
+		
+	chunksizes : `None`, ((`tuple` or `list`) of (`int` or `None`))
+		The length of one chunk to chunk each axis. `None` disables chunking
+		and reduces a full axis. `None` can be given once for all axes or
+		for single axes.
+		
+	mergevalues : `float`, `int`, `None`
+		See `quantization`. Parameterizes quantization in
+		`quantizeClipScaleValues` done once at the end.
+		
+	cliplimitstddev : `float`, `int`, `None`
+		See `clipping`. This cliplimit is interpreted as multiple of standard
+		deviations. `getHistStddev` is invoked automatically. The value is
+		automatically clipped to a valid range, which does not leave you with
+		less than *3* bins. But values being so large, that they show no
+		effect are accpeted silently.
+		
+	cliplimitfixed : `float`, `int`, `None`
+		See `clipping`. Instead of *cliplimitstddev*, one can pass a direct
+		rule telling by which factor to reduce the bincount. Without any
+		standard deviation. This is then directly passed to
+		`quantizeClipScaleValues`. Use this to make two experiments comparable
+		as described in `clipping`. In that case, use
+		`applyCliplimitStddevAsFixedFrom`.
+		
+	positionweights : ((`tuple` or `list`) of (`None` or `numpy.ndarray` or *"same"* or *"hist"*)), `None`
+		One *positionweights* for each reduced axis. See `probabilisticAdder`.
+		These determine the weight of elements summed along the *reduceaxes* 
+		`None` is the same like passing `None` for all axes.
+		
+		For each axis:
+			
+			- `numpy.ndarray` is just forwarded to `probabilisticAdder` as-is
+			  for one axis. 
+			
+			- *"same"* uses an all-one vector with correct length. Use e.g. along
+			  `MAC_AXIS`.
+			  
+			- *"hist"* uses weights for a histogram axis. These are like
+			  `numpy.arange`. More exact: `getHistValues` is asked.
+			  Useful for `WEIGHT_AXIS` and `ACT_AXIS`.
+			  
+			- `None` is like *same*.
+			
+	positionweightsonehot : ((`tuple` or `list`) of (`bool` or `None`)), `None`
+		One *positionweightsonehot* for each reduced axis. See `probabilisticAdder`.
+		These determine computation of the full-scale.
+		`None` is the same like passing `None` for all axes.
+		
+		For each axis:
+			
+			- `bool` is forwarded to `probabilisticAdder` as-is.
+			
+			- `None` equals `True` if *positionweights* is *"hist"* for this
+			  axis and `False` otherwise. This is a useful default behavior,
+			  which automatically makes reduction of `WEIGHT_AXIS` and
+			  `ACT_AXIS` one-hot.
+			
+	disablereducecarries : ((`tuple` or `list`) of (`bool` or `None`)), `None`
+		One *disablereducecarry* for each reduced axis. See `probabilisticAdder`.
+		These determine stochastic dependecy of summands.
+		`None` is the same like passing `None` for all axes.
+		
+		For each axis:
+			
+			- `bool` is forwarded to `probabilisticAdder` as-is.
+			
+			- `None` equals `False`. SO by default, this (rarely used) feature
+			  is disabled.
+			  
+	chunkoffsetsteps : ((`tuple` or `list`) of (`int` or `None`)), `None`
+		Used to derive one *chunkoffsets* for each reduced axis.
+		See `probabilisticAdder`.
+		These are added on *positionweights* depending on where in the chunk
+		we are during summation. Ignored, if *chunksize* is alrge enough to
+		leave us with just a single chunk.
+		`None` is the same like passing `None` for all axes.
+		
+		For each axis:
+			
+			- `None` results in using just zeros as *chunkoffsets*. The feature
+			  is disabled.
+			  
+			- `int` is a stepwidth for constructing a `numpy.arange` of correct
+			  length with this stepwidth. See `probabilisticAdder`. If you
+			  chunked a histogram axis, pass the chunksize here when adding the
+			  chunks later up.
+			  
+	histaxis : `int`
+		Histogram axis. Often, `HIST_AXIS` is used. Must always be given,
+		even in *dostatistic*, where it has length 1. See also *docreatehistaxis*.
+		
+	maxhistvalue : `numpy.ndarray`, `None`
+		See `maxhistvalue`. This is updated just like *tosum*. Could be ommitted,
+		but some features then might raise exceptions.
+		
+	stataxis : `int`
+		The statistic axis. Often, `STAT_AXIS` is used. Even in
+		*dostochastic*, this is needed and should refer to a length-1 dimension.
+		
+	docreatehistaxis : `bool`
+		If set, *histaxis* is added before doing anything else. Needed in the
+		very first call of this function in a MVM simulation.
+		
+	mergeeffortmodel : `None`, `callable`, *"digital"*, *"analog"*
+		If not `None`, this is used to compute some quantization-effort metric.
+		A `callable` just gets a `numpy.ndarray` of `int` with the *stataxis*
+		made *1* (because we want to know the cost per one computation).
+		THe dtype is `int` and *histaxis* is also `None`. The passed value is
+		the *bincount* (so the number of quantized levels) for each histogram.
+		The callable should return a `float` python scalar rating the effort
+		for running the ADCs to quantize these bins.
+		
+		*"analog"* uses a metric, where the effort raises linear with the number
+		of levels, which refers to technology-limited ADCs. *"digital"* uses
+		:math:`log_{2}` of the number of bins and sums these values over
+		histograms.
+		
+		Note that residual chunks (see `chunks`) will possibly give a smaller
+		number of levels and hence smaller effort.
+		
+	allowoptim : `bool`
+		Forwarded to `probabilisticAdder`.
+	
+	"""
 	
 	checkStatisticsArgs(
 			dostatistic=dostatistic,
@@ -1689,6 +1857,10 @@ def reduceSum(
 					stataxis,
 					thisreduceax,
 			)
+			
+		#This is still possibly None, in which case we deactivate the feature
+		if thisdisablereducecarry is None:
+			thisdisablereducecarry = False
 		
 		#Positionweights can be an argument and a str. Unpack if given.
 		#same and None support setting the same value as weight

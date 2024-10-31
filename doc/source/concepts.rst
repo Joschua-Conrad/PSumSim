@@ -140,8 +140,8 @@ seen value-probability distribution better [PACT]_.
 In general, clipping is parameterized in terms of standard deviations. A
 *cliplimitstddev* of *2* means: find the standard deviation and then clip
 values at +/- 2 standard deviations. *cliplimitfixed* then is
-:math:`\text{2}\sigma \div \text{maxhistvalue}` and tells the factor by which
-the full-scale should be multipled down.
+:math:`\frac{\text{maxhistvalue}}{\text{2}\sigma}` and tells the factor by which
+the full-scale should be divided down.
 `getHistStddev` finds standard deviations.
 `optimumClippingCriterion` is a pre-defined clip rule from [OCC]_.
 Note that `round` is used to get an integer number of bins in the clipped
