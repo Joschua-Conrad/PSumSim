@@ -48,7 +48,7 @@ RUN_DESCRIPTION_CORE_CLS = collections.namedtuple(
 		),
 )
 
-class RunDescription():
+class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 	
 	#RE to turn a run description identifier back into an object
 	STR_TO_RUN_DESCRIPTION_RE = re.compile((
@@ -87,8 +87,8 @@ class RunDescription():
 		
 		return val
 
-	def __init__(
-			self,
+	def __new__(
+			cls,
 			nummacs,
 			chunksize,
 			activationlevels,
@@ -105,14 +105,14 @@ class RunDescription():
 		
 			#Normalize types
 			nummacs = int(nummacs)
-			chunksize = self.levelChunksizeFilter(chunksize)
-			activationlevels = self.levelChunksizeFilter(activationlevels)
-			weightlevels = self.levelChunksizeFilter(weightlevels)
-			intermediatelevels = self.levelChunksizeFilter(intermediatelevels)
-			finallevels = self.levelChunksizeFilter(finallevels)
-			initialcliplimit = self.cliplimitFilter(initialcliplimit)
-			intermediatecliplimit = self.cliplimitFilter(intermediatecliplimit)
-			finalcliplimit = self.cliplimitFilter(finalcliplimit)
+			chunksize = cls.levelChunksizeFilter(chunksize)
+			activationlevels = cls.levelChunksizeFilter(activationlevels)
+			weightlevels = cls.levelChunksizeFilter(weightlevels)
+			intermediatelevels = cls.levelChunksizeFilter(intermediatelevels)
+			finallevels = cls.levelChunksizeFilter(finallevels)
+			initialcliplimit = cls.cliplimitFilter(initialcliplimit)
+			intermediatecliplimit = cls.cliplimitFilter(intermediatecliplimit)
+			finalcliplimit = cls.cliplimitFilter(finalcliplimit)
 			randombehave = str(randombehave)
 		
 			#Decide when a run makes no sense
@@ -212,7 +212,7 @@ class RunDescription():
 					#Because then no SQNR could be computed. Only if the run itself
 					#is skipped, it could happen that the reference is also
 					#skipped.
-					sqnrreference = type(self)(
+					sqnrreference = cls(
 							**sqnrreferenceargs,
 							allowskip=skipthisrun,
 							createdummy=True,
@@ -229,40 +229,23 @@ class RunDescription():
 			#having the intermiediate (most advanced) quantization is somewhen
 			#needed as reference.
 			#And whether tis run is skipped was decided above
-			rundescription = RUN_DESCRIPTION_CORE_CLS(
+			return super().__new__(
+					cls,
 					**givenargs,
 					sqnrreference=sqnrreference,
 					issqnrreference = (givenargs["intermediatelevels"] is None),
 					skipthisrun=skipthisrun,
 			)
-			
-			#THe rundescription is our core attribute
-			self.rundescription = rundescription
-			
 		
-	def __getattr__(self, name):
-		if name != "rundescription":
-			return getattr(self.rundescription, name)
-		else:
-			return super().__getattr__(name)
-	
-	def __setattr__(self, name, value):
-		if name != "rundescription":
-			return setattr(self.rundescription, name, value)
-		else:
-			return super().__setattr__(name, value)
-		
-	def __str__(self):
-		return str(self.rundescription)
-	
-	def __repr__(self):
-		return repr(self.rundescription)
-	
-	def __eq__(self, other):
-		return self.rundescription == other.rundescription
-	
-	def __hash__(self):
-		return hash(self.rundescription)
+	def __getnewargs__(self):
+		newargs = super().__getnewargs__()
+		#Remove args which can be re-created in __new__
+		newargs = newargs[:-3]
+		#Add argument allowskip: we allow it, otherwise __new__ should have
+		#complained already. Also add *makedummy*, where we are one if
+		#our sqnrreference was None.
+		newargs = (*newargs, True, (self.sqnrreference is None))
+		return newargs
 	
 	def copy(
 			self,
@@ -272,7 +255,7 @@ class RunDescription():
 		
 		#When recreating, skip fields that are re-derived in init
 		return type(self)(
-				*self.rundescription[:-3],
+				*self[:-3],
 				allowskip=allowskip,
 				createdummy=createdummy,
 		)

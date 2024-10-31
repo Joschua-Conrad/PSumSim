@@ -5,6 +5,7 @@ import copy
 import json
 import math
 import pytest
+import pickle
 
 from psumsim.array import normalizeAxes, getValueAlongAxis, padToEqualShape
 from psumsim.hist import histlenToBincount, bincountToHistlen, packHist, packStatistic, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
@@ -3442,7 +3443,11 @@ class test_misc(BaseTestCase):
 					"A SQNR reference must have a None SQNR reference."
 		
 		#Go back, this will re-derive dummy info
-		rundescrederived = RunDescription.fromStr(thestr=rundescstr, allowskip=makenone, createdummy=False)
+		rundescrederived = RunDescription.fromStr(
+				thestr=rundescstr,
+				allowskip=makenone,
+				createdummy=False,
+		)
 		
 		assert rundesc == \
 				rundescrederived, \
@@ -3451,6 +3456,13 @@ class test_misc(BaseTestCase):
 		#Check that rundescription is a valid key
 		testdict = dict()
 		testdict[rundesc] = None
+		
+		#Pickel and unpickle and compare that they are the same
+		rundescpickled = pickle.dumps(rundesc)
+		rundescunpickled = pickle.loads(rundescpickled)
+		
+		assert rundesc == rundescunpickled, \
+				"Pickling changes rundescription"
 	
 	@classmethod
 	def test_stimulusPlot(cls, tmp_numpy):
