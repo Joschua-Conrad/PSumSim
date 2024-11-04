@@ -107,13 +107,13 @@ class SHAPE_ENUM(enum.Enum):
 	WEIGHT_HIST_ENUM = enum.auto()
 	"""*histlen* along `WEIGHT_AXIS`."""
 	
-	ACT_STEPS_IN_STOCH = enum.auto()
+	ACT_BINS_IN_STOCH_ENUM = enum.auto()
 	"""Like `ACT_BINS_ENUM`, but *1* in stochastic runs."""
 	
-	WEIGHT_STEPS_IN_STOCH = enum.auto()
+	WEIGHT_BINS_IN_STOCH_ENUM = enum.auto()
 	"""Like `WEIGHT_BINS_ENUM`, but *1* in stochastic runs."""
 	
-	MAC_IN_NON_STOCH = enum.auto()
+	MAC_IN_STAT_ENUM = enum.auto()
 	"""Like `MAC_HIST_ENUM`, but *1* in statistic runs."""
 	
 	MAC_CHUNKED_ENUM = enum.auto()
@@ -122,7 +122,7 @@ class SHAPE_ENUM(enum.Enum):
 	HIST_TO_BINS_ENUM = enum.auto()
 	"""Call `histlenToBincount`."""
 	
-	ROUND = enum.auto()
+	ROUND_ENUM = enum.auto()
 	"""Call `round`."""
 	
 	CLIPLIMIT_MERGEVALUE_ENUM = enum.auto()
@@ -1214,7 +1214,7 @@ class test_simulation(BaseTestCase):
 								SHAPE_ENUM.ACT_HIST_ENUM,
 								SHAPE_ENUM.WEIGHT_HIST_ENUM,
 								0.333333333333333333333,
-								(SHAPE_ENUM.ROUND, tuple(),),
+								(SHAPE_ENUM.ROUND_ENUM, tuple(),),
 								(SHAPE_ENUM.HIST_TO_BINS_ENUM, tuple(),),
 						),
 				),
@@ -1701,8 +1701,8 @@ class test_simulation(BaseTestCase):
 							(
 									(SHAPE_ENUM.STOCH_ENUM,),
 									(
-											SHAPE_ENUM.MAC_IN_NON_STOCH,
-											SHAPE_ENUM.ACT_STEPS_IN_STOCH,
+											SHAPE_ENUM.MAC_IN_STAT_ENUM,
+											SHAPE_ENUM.ACT_BINS_IN_STOCH_ENUM,
 									),
 									(1,),
 							),
@@ -1720,8 +1720,8 @@ class test_simulation(BaseTestCase):
 							(
 									(SHAPE_ENUM.STOCH_ENUM,),
 									(
-											SHAPE_ENUM.MAC_IN_NON_STOCH,
-											SHAPE_ENUM.WEIGHT_STEPS_IN_STOCH,
+											SHAPE_ENUM.MAC_IN_STAT_ENUM,
+											SHAPE_ENUM.WEIGHT_BINS_IN_STOCH_ENUM,
 									),
 									(1,),
 							),
@@ -2204,18 +2204,18 @@ class test_simulation(BaseTestCase):
 					SHAPE_ENUM.WEIGHT_BINS_ENUM : weightbincount,
 					#Number of steps activation/weight can have.
 					#But only in stochastics. Otherwise, this is 1.
-					SHAPE_ENUM.ACT_STEPS_IN_STOCH : ((isstochastic and actbincount) or 1), 
-					SHAPE_ENUM.WEIGHT_STEPS_IN_STOCH : ((isstochastic and weightbincount) or 1), 
+					SHAPE_ENUM.ACT_BINS_IN_STOCH_ENUM : ((isstochastic and actbincount) or 1), 
+					SHAPE_ENUM.WEIGHT_BINS_IN_STOCH_ENUM : ((isstochastic and weightbincount) or 1), 
 					#Number of macs again, but only in non-stochastics.
 					#Otherwise this is 1.
-					SHAPE_ENUM.MAC_IN_NON_STOCH : (((not isstochastic) and nummacs) or 1),
+					SHAPE_ENUM.MAC_IN_STAT_ENUM : (((not isstochastic) and nummacs) or 1),
 					#The chunk count yielded from creating fractional
 					#number of chunks along MAC aixs in experiment
 					SHAPE_ENUM.MAC_CHUNKED_ENUM : nummacchunks,
 					#Turns a hist to bin counts. Special enum
 					SHAPE_ENUM.HIST_TO_BINS_ENUM : lambda e: histlenToBincount(histlen=e),
 					#Rounds a number
-					SHAPE_ENUM.ROUND : lambda e: round(e),
+					SHAPE_ENUM.ROUND_ENUM : lambda e: round(e),
 					#Function, which scales shape according to cliplimitfixed
 					#from runidx and mergevalues. Pass current expected,
 					#valuescalidx and mergevalues
@@ -2289,7 +2289,7 @@ class test_simulation(BaseTestCase):
 					#This also works nice, as float precision usually
 					#rounds down and ceil gets us to the correct value
 					#then.
-					#Use SHAPE_ENUM.ROUND if you want something else.
+					#Use SHAPE_ENUM.ROUND_ENUM if you want something else.
 					expandedentry = int(math.ceil(expandedentry))
 					#Remember length of this axis
 					expandedshape.append(expandedentry)
