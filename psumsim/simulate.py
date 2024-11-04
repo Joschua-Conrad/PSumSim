@@ -1165,7 +1165,8 @@ def quantizeClipScaleValues(
 		Parameterizes quantization.
 		If positive, is used as described in `quantization` to merge bins by
 		dividing and rounding. If negative, describes the *histlen* (so the
-		maximum magnitude) of the quantized histogram. Values on range *(-1;1)*
+		maximum magnitude) of the quantized histogram. See `dataformat`.
+		Values on range *(-1;1)*
 		or larger than the old histogram length
 		would leave us with less than *3* bins or would have no effect.
 		They raise an exception.
@@ -4057,7 +4058,7 @@ def optimumClippingCriterion(levels, abstol=1e-6, maxiter=100):
 	----------
 	levels : `int`
 		The number of levels in the quantizer following clipping. [OCC]_ uses
-		a bitwidth *B*. This is a *bincount*.
+		a bitwidth *B*. This is a *bincount*. See `dataformat`
 		
 	abstol : `float`, optional
 		The absolute tolerance t be achieved in the iterative computation.

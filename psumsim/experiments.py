@@ -695,6 +695,8 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 	)
 	processedcliplimitcases = list()
 	for cliplimit, levels in cliplimitcases:
+		#All levels are a histlen, but the OCC expects a bincount.
+		levels = histlenToBincount(histlen=levels)
 		if cliplimit == "occ":
 			cliplimit = optimumClippingCriterion(
 					levels=levels,
