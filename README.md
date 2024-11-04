@@ -11,6 +11,45 @@ In case of acceptance of the provided manuscript, this repository is made availa
 publicly under an open-source license. Currently, it is solely provided
 for the purpose of reviewing the manuscript at-hand. See {std:ref}`infolicense`.
 
+## What PSumSim Can Do
+
+- Create operands for MVM applications as numbers drawn from a random process
+  or as histograms ({any}`generateSimulationOperands`)
+  
+- Implement several numeric operations on histograms
+	
+	- SQNR computation ({any}`computeSqnr`)
+	
+	- Quantization and clipping ({any}`quantizeClipScaleValues`)
+	
+	- Summation ({any}`probabilisticAdder`)
+	
+	- Standard-deviation computation ({any}`getHistStddev`)
+	
+	- Make unquantized and quantized histograms comparable
+	  ({any}`equalizeQuantizedUnquantized`)
+	  
+- Simulate full MVM applications using stochastic processes and histograms
+  ({any}`simulateMvm`). One can thereby
+  
+	- Observe full-scale values ({std:ref}`maxhistvalue`)
+	
+	- Observe probability for the occurence of each possible result value
+	  ({std:ref}`dataformat`)
+	
+	- Check a good ADC setup in terms of its full-scale ({std:ref}`clipping`)
+	  and bitwidth ({std:ref}`quantization`)
+	  
+	- Check the effects of the algorithm being too large for the hardware
+	  ({std:ref}`chunks`)
+  
+- Explore the design-space of a MVM application regarding algorithm and
+  hardware size and SQNR with a highly parallel simulator
+  ({any}`runAllExperiments`)
+  
+- Evaluate the oprimum clipping criterion (OCC) [OCC]_
+  ({any}`optimumClippingCriterion`)
+
 ## TL;DR
 Time is precious and you just want a one-liner to run in a Linux or MAC shell?
 Download the code, open a commandline in the directory with downloaded files
@@ -57,6 +96,24 @@ to upgrade the Python package-managing before installing PSumSim.
 ## How to Use
 After installing, there are several things provided by PSumSim.
 
+### Docs
+To build the documentation website, first install dependencies using
+```bash
+python3 -m pip install --editable ".[docs]"
+```
+and again possibly ommit `--editable` just like in
+[Installation Guidelines](#how-to-install). Then, run
+```bash
+sphinx-build -b html -E doc/source doc/build
+```
+in the main directory. After the command completes, you'll find the documentation
+as a website *docs/build/index.html*. Add *-W* to fail on warnings. This
+README is also found there with all hyperlinks working.
+
+### Start Reading
+Checkout {std:ref}`concepts`, which summarizes some concepts and terms used
+throughout the entire documentation.
+
 ### Commandline
 Use
 ```bash
@@ -72,10 +129,11 @@ to run 10% of all experiments with 4 CPU jobs. Several of these calls can be
 used to keep the simulation machine busy.
 
 See {std:ref}`commandlineinterface` for full documentation or simply call
-`psumsim --help`.
+`psumsim --help`. To run your own design-space exploration, check and
+modify {any}`experiments`.
 
 ### As a Package
-Check `psumsim.simulation.simulateMvm`, which basically is what is called for
+Check {any}`simulateMvm`, which basically is what is called for
 each simulated experiment. Use this in your own Python script to get histograms
 reflecting your own MVM application.
 
@@ -92,19 +150,6 @@ Under the hood, *pytest* is used. Possible commandline arguments are descibed
 is to run a specific test case and exit immediately if that one fails,
 as run e.g. by `psumsim_test -x -k "test_optimumClippingCriterion"` for the
 test {any}`test_optimumClippingCriterion`.
-
-### Docs
-To build the documentation website, first install dependencies using
-```bash
-python3 -m pip install --editable ".[docs]"
-```
-and again possibly ommit `--editable` just like in
-[Installation Guidelines](#how-to-install). Then, run
-```bash
-sphinx-build -b html -E doc/source doc/build
-```
-in the main directory. After the command completes, you'll find the documentation
-as a website *docs/build/index.html*. Add *-W* to fail on warnings.
 
 (readmecite)=
 ## How to Cite

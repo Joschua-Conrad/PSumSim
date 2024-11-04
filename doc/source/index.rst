@@ -3,17 +3,17 @@ Welcome to PSumSim's documentation!
 This framework helps with understanding how partial sums are quantized
 in matrix-vector multipliers (MVMs). You can setup a MVM application including
 quantization and tiling/chunking and can trace value probabilities, fullscales,
-best cliplimits and much more. Everything done in plain Numpy.
+best cliplimits and much more. Everything done in plain `numpy`.
 
 .. toctree::
    :maxdepth: 1
    
    readme
-   changelog
    concepts
    apiindex
    commandlineinterface
    references
+   changelog
    license
 
 Indices and tables
