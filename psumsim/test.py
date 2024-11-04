@@ -134,7 +134,7 @@ class test_simulation(BaseTestCase):
 	Includes `reduceSum`, `probabilisticAdder`, `quantizeClipScaleValues`
 	and `getHistStddev`.
 	
-	Test cases are parameterized and results across test calls gathered as
+	Test cases are parametrized and results across test calls gathered as
 	described demonstrated in `test_pytestFeatures`.
 	
 	"""
@@ -1992,7 +1992,7 @@ class test_simulation(BaseTestCase):
 		----------
 		metafunc : `pytest.Metafunc`
 			If a *simulationCase* fixture request is found here, it is
-			parameterized.
+			parametrized.
 
 		"""
 		
@@ -2013,7 +2013,7 @@ class test_simulation(BaseTestCase):
 		----------
 		simulationCase : `tuple`
 			One element from `GROUPS`, `LEVELS` and `NUMMACS` respectively.
-			This `pytest.fixture` is parameterized by `pytest_generate_tests`.
+			This `pytest.fixture` is parametrized by `pytest_generate_tests`.
 
 		Returns
 		-------
@@ -3291,7 +3291,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 		----------
 		metafunc : `pytest.Metafunc`
 			If a *unquantQuantComparisonPlotCase* fixture request is found
-			here, it is parameterized.
+			here, it is parametrized.
 
 		"""
 		if "unquantQuantComparisonPlotCase" in metafunc.fixturenames:
@@ -3800,7 +3800,7 @@ class test_misc(BaseTestCase):
 		----------
 		skipthisruncase : `bool`
 			If set, the created `RunDescription` has *skipthisrun* set.
-			Set by `pytest.mark.parameterize`.
+			Set by `@pytest.mark.parametrize`.
 
 		"""
 		if not skipthisruncase:
@@ -3947,12 +3947,15 @@ class test_misc(BaseTestCase):
 		
 		This tests, that the iterative function actually converges with the
 		default arguments.
+		
+		Only for 64 levels (6 bits), the value can be asserted against one
+		from [OCC]_.
 
 		Parameters
 		----------
 		levels : `int`
 			The *bincount* to derive OCC for. Set with
-			`pytest.mark.parameterize`. 
+			`@pytest.mark.parametrize`. 
 
 		"""
 		
@@ -4004,10 +4007,10 @@ class test_pytestFeatures:
 		
 	@classmethod
 	def pytest_generate_tests(cls, metafunc):
-		"""Generate parameterized testcases from function.
+		"""Generate parametrized testcases from function.
 		
-		We here do not parameterize test functions, but instead fixtures.
-		A `pytest.fixture` *caseraw* is here created and parameterized with two
+		We here do not parametrize test functions, but instead fixtures.
+		A `pytest.fixture` *caseraw* is here created and parametrized with two
 		strings. This emulates a creation of test cases from some more
 		complex code.
 		
@@ -4018,7 +4021,7 @@ class test_pytestFeatures:
 		----------
 		metafunc : `pytest.Metafunc`
 			If a requested `pytest.fixture` *caseraw* is found here, it is
-			parameterized.
+			parametrized.
 		"""
 		if "caseraw" in metafunc.fixturenames:
 			metafunc.parametrize("caseraw", ("Hallo", "Welt"), scope="class")
@@ -4028,7 +4031,7 @@ class test_pytestFeatures:
 	def caseprocessed(cls, caseraw):
 		"""Process a raw case and return something.
 		
-		This `pytest.fixture` invokes the parameterized *caseraw* fixture setup in
+		This `pytest.fixture` invokes the parametrized *caseraw* fixture setup in
 		`pytest_generate_tests` and then does some expensive computation on
 		each case: here `len`.
 
