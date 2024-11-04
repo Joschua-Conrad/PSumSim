@@ -53,6 +53,10 @@ Cliplimits applied when quantizing and drawing operands.
 See `clipping` and `generateSimulationOperands`.
 """
 
+STATISTICS_DIM = 100
+"""`int` : Number of computations to run in parallel for each experiment to
+conduct selfcheck."""
+
 RUN_DESCRIPTION_CORE_CLS = collections.namedtuple(
 		typename="RUN_DESCRIPTION_CORE_CLS",
 		field_names=(
@@ -534,6 +538,21 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 		return rundescription
 	
 def runIter():
+	"""Generate all possible experiments.
+	
+	This takes `RANDOM_BEHAVES`, `CLIP_LIMITS`, `NUMMACS` and `LEVELS` and
+	creates all possible combinations of them. Thereby, e.g. *activationlevels*
+	as well as *weightlevels* both originate from `LEVELS`, but still are drawn
+	separately and can differ. The rundescriptions here come out in an order,
+	where needed *sqnrreference* always occurs before the run needing it.
+
+	Yields
+	------
+	rundescription : `RunDescription`
+		A rundescription. Ones with *skipthisrun* are ignored.
+
+	"""
+	
 	#Iterate over all combinations of values
 	
 
@@ -596,6 +615,68 @@ def runIter():
 			yield rundescription
 			
 def doSingleRun(rundescription, sqnrreferencereturn):
+	"""Run a single experiment.
+	
+	- `simulateMvm` is called with *dostochastic* (see `statstoc`).
+	
+	- `simulateMvm` is also called with `STATISTICS_DIM` *dostatisticdummy*
+	  computations with enabled self-check to validate the setup.
+	  
+	- `simulateMvm` is also called with a single, *dostatisticdummy* 
+	  compuation with full-scale operands to detect overflows.
+	  
+	- `equalizeQuantizedUnquantized` and `computeSqnr` are used to calculate
+	  SQNR.
+	
+	Clipping criterions *"occ"* are looked-up using `optimumClippingCriterion`.
+	If an experiment has no *chunksize*, there is only final quantization.
+
+	Parameters
+	----------
+	rundescription : `RunDescription`
+		The experiment to run.
+		
+	sqnrreferencereturn : `dict`, `None`
+		The reference for SQNR computation. Can be skipped, but there are
+		no SQNR results then. Needs to provide keys *finalresult* and
+		*finalmergevalues*, which contain last elements of *results* and
+		*mergevaluess* returned by `simulateMvm`. If not already present,
+		keys *results* and *mergevaluess* are set from these, such that this
+		is compatible with `equalizeQuantizedUnquantized`. Also the key
+		*fewmergevalues* must be present. This is allowed to have only two
+		values, as there are only two calls to `reduceSum` for experiments
+		without a chunksize. A key *mergevaluess* is set from a padded
+		version to again be compatible with `equalizeQuantizedUnquantized`.
+		
+		.. note::
+			This `dict` get new keys set, which is an in-place alternation.
+			
+		`singleRunWorker` returns values which can be used here.
+
+	Raises
+	------
+	`RuntimeError`
+		If a skipped rundescription is passed.
+
+	Returns
+	-------
+	retstochastic : `dict`
+		Return of *dostochastic* call of `simulateMvm`.
+		
+	snr : `float`, `None`
+		Returned by `computeSqnr`, if *sqnrreferencereturn* was given.
+		
+	probabilityerror : `numpy.ndarray`, `None`
+		Returned by `computeSqnr`, if *sqnrreferencereturn* was given.
+		
+	magnitudeerror : `numpy.ndarray`, `None`
+		Returned by `computeSqnr`, if *sqnrreferencereturn* was given.
+		
+	squarederror : `numpy.ndarray`, `None`
+		Returned by `computeSqnr`, if *sqnrreferencereturn* was given.
+
+
+	"""
 	
 	if rundescription.skipthisrun:
 		raise RuntimeError(
@@ -725,7 +806,7 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 			randombehave=rundescription.randombehave,
 	)
 	statisticrandomargs = dict(
-			statisticdim=100,
+			statisticdim=STATISTICS_DIM,
 			dostatisticdummy=True,
 			randombehave=rundescription.randombehave,
 	)
@@ -833,6 +914,46 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 	return retstochastic, snr, probabilityerror, magnitudeerror, squarederror
 
 def singleRunWorker(rundescription, sqnrreferencereturn):
+	"""Wrapper for `doSingleRun`.
+	
+	`doSingleRun` keeps all results, but that might be too much when running
+	many experiments and when memorizing many results for having them ready
+	as *sqnrreference*.
+	
+
+	Other Parameters
+	----------------
+	:
+		See `doSingleRun`.
+	
+	Returns
+	-------
+	result : `dict`
+		Keys are `str`:
+			
+		snr
+			As returned by `doSingleRun`.
+			
+		totalmergeeffort
+			`float` or `None`. A sum over *mergeeffort* of all occured
+			quantizations in the experiment. `None` if there was no quantization.
+
+		finalmaxhistvalue
+			`numpy.ndarray`. Result from `simulateMvm` from last
+			summation/quantization step.
+			
+		fewmergevaluess
+			`list` of `numpy.ndarray`. Result from `simulateMvm`, which can
+			have two or three entries depending on whether *chunksize* was
+			present or not.
+			
+		finalresult
+			`numpy.ndarray`. Result from `simulateMvm` from last
+			summation/quantization step.
+		
+		cliplimitfixeds
+			`numpy.ndarray`. Result from `simulateMvm`.
+	"""
 	
 	#Most return values will be dropped. This is the space, where we make
 	#the step towards reduced data possible to serialize.
@@ -876,7 +997,91 @@ def singleRunWorker(rundescription, sqnrreferencereturn):
 	
 	return result
 
-def runAllExperiments(runreduced, runquiet, jsonfp, iterbegin, iterend, runkeys, processes, progressfp):
+def runAllExperiments(
+			runreduced,
+			runquiet,
+			jsonfp,
+			iterbegin,
+			iterend,
+			runkeys,
+			processes,
+			progressfp,
+	):
+	"""Run all experiments from `runIter`.
+	
+	This iterates over all experiments, calls `singleRunWorker`, keeps results
+	as *sqnrreference* and writes minimal results to JSON file. The stock
+	of results for *sqnrreference* is cleared if  *randombehave*,
+	*initialcliplimit*, nummacs*, *activationlevels* or *weightlevels* changes.
+	Because these are most rarely updated fields in `runIter` and hence if
+	they change, the created *sqnrreference* results are never needed again.
+	This reduces memory requirements, but requires to stick to the run order
+	in `runIter`, even when running just single runs.
+
+	Parameters
+	----------
+	runreduced : `bool`
+		If set, `RANDOM_BEHAVES`, `CLIP_LIMITS`, `NUMMACS`, `CHUNKSIZES` and
+		`LEVELS` are reduced to `None` and two normal values. Experiments
+		finish rapidly then, which is nice for debugging. The parameter `list`
+		objects are restored afterwards.
+		
+	runquiet : `bool`
+		If set, skip printing of progressbar to *stdout* or *progressfp*.
+		
+	jsonfp : `io.TextIOBase`
+		File handle to write `json` results to. If this is readable, it is
+		read as `json` file and results are kept, not re-created and written
+		to output file together with new results in the end. Use this to
+		continue from a crashed simulation.
+		
+	iterbegin : `float`, `None`
+		If set, is multiplied by the number of all experiments to run and then
+		used in `itertools.islice` to run only a subset of the experiments.
+		Use this to shard experiments, to run them across different machines.
+		Each shard will detect which *sqnrreference* are needed and will create
+		them. `runIter` will determine the correct order to run references
+		first.
+		
+		.. note::
+			Using infinately many shards makes no sense, as all the shards will
+			need to create possibly the same *sqnrreference* results.
+			
+	iterend : `float`, `None`
+		Like *iterbegin*, but specifies where to stop. A value of *1.0* will
+		still ignore the last experiment.
+		
+	runkeys : `None`, ((`tuple` or `list`) of `str`)
+		Names of specific runs to carry out. Interpreted using
+		`RunDescription.fromStr`. `runIter` is still needed to find best experiment
+		order. If given, *runbegin* and *runend* are ignored. If runs with
+		set *skipthisrun* are specified, they are skipped silently.
+	
+	processes : `int`, `None`
+		How many of the experiments to run in parallel workers.
+		`multiprocessing.pool.Pool` is used. If one run needs a *sqnrreference* which
+		does not exist yet, process creation halts and waits for previous
+		experiments to finish. `None` lets `multiprocessing.pool.Pool`
+		find a good value, which is probably the number of CPUs.
+		Negative values or *0* are like `None`.
+		
+	progressfp : `io.TextIOBase`, `None`
+		If given, progress information is written to this stream instead of
+		to `sys.stdout`. Ignored if *runquiet* is set. Use this for setups,
+		where you don't have access to th commandline output, as in clusters.
+
+	Raises
+	------
+	`ValueError`
+		If a run does not have *skipthisrun* set, but its *sqnrreference* has.
+	
+	`RuntimeError`
+		If a call to `multiprocessing.pool.Pool` (and hence to `singleRunWorker`)
+		raises an exception. That exception is re-raised, but the `RuntimeError`
+		states the name of the run which failed. So one can debug it using
+		*runkeys*.
+
+	"""
 	
 	#If that is the case, remember class attributes, clear them and re-append
 	#less values
@@ -1050,7 +1255,7 @@ def runAllExperiments(runreduced, runquiet, jsonfp, iterbegin, iterend, runkeys,
 				#If the reference would be skipped, it cannot exist. Check that
 				#here.
 				if rundescription.sqnrreference.skipthisrun:
-					raise RuntimeError(
+					raise ValueError(
 							f"Reference {thisrefkeystr} for run {thisrunkeystr} "
 							f"is a dummy.",
 							thisrefkeystr,
@@ -1197,6 +1402,15 @@ def runAllExperiments(runreduced, runquiet, jsonfp, iterbegin, iterend, runkeys,
 		CLIP_LIMITS.extend(cliplimits)
 		
 def getArgParser():
+	"""Return argument parser for calling `runAllExperiments` from
+	commandline.
+	
+	Returns
+	-------
+	parser : `argparse.ArgumentParser`
+		Commandline parser.
+
+	"""
 	
 	parser = argparse.ArgumentParser(
 			prog="psumsim",
@@ -1204,7 +1418,7 @@ def getArgParser():
 			"behave when being quantized. The process ist simulated using "
 			"stochastic histograms of values. This program runs a set "
 			"of experiments and exports the SQNR and ADC effort of each run "
-			"to a JSON file.",
+			"to a JSON file. See also `runAllExperiments`.",
 			epilog="Written by joschua.conrad@uni-ulm.de at Ulm University, "
 			"Institute of Microelectronics. Please also see the documentation "
 			"for advanced usage, acknowledgement and license.",
@@ -1234,7 +1448,7 @@ same process (nice for debugging)."""
 	
 	thehelp="""Where in the set of all experiments to start. If you pass 0.1,
 the first tenth of all experiments will be discarded. The default includes
-all runs."""
+all runs. If *runkeys* is passed, this is ignored."""
 	parser.add_argument(
 			"-b", "--begin",
 			action="store",
@@ -1244,7 +1458,8 @@ all runs."""
 	
 	thehelp="""Where in the set of all experiments to end. If you pass 0.1,
 the last tenth of all experiments will be discarded. The default includes
-all runs. usual indexing logic is applied: if you pass *1.0*, the very last run
+all runs. If *runkeys* is passed, this is ignored.
+Usual indexing logic is applied: if you pass *1.0*, the very last run
 will be ignored."""
 	parser.add_argument(
 			"-e", "--end",
