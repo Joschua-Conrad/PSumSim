@@ -1520,6 +1520,21 @@ Is ignored if runnames are already given."""
 
 
 def main(args=None):
+	"""Calling this package as a script or using the entrypoint.
+	
+	This connects `getArgParser` and `runAllExperiments`.
+	If the JSON file already exists, it is open for update to only run
+	experiments whose results do not exist yet. The progress file is
+	opened for appending.
+
+	Parameters
+	----------
+	args : `None`, `list`, optional
+		Commandline arguments to parse. Passed to
+		`argparse.ArgumentParser.parse_args`. The default is `None`, which
+		uses `sys.argv`.
+
+	"""
 	
 	#Needed to make multiprocess with pyinstaller work
 	#https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
