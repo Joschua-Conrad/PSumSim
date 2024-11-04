@@ -3463,6 +3463,115 @@ def generateSimulationOperands(
 		randombehave,
 		randomclips,
 ):
+	r"""Draw operands for an MVM simulation.
+	
+	This draws operands in a context of neural networks: weights and activations
+	are drawn from random distributions and are multiplied.
+
+	Parameters
+	----------
+	statisticdim : `int`, `None`
+		If `None`, this is a *dostochastic* simulation. Otherwise, this
+		specifies the number of parallel computations to do in order to gather
+		statistic significance. See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		Simulation mode. See `statstoc`.
+		
+	activationlevels : `int`
+		The number of levels the activations have. Kind of the activation
+		bitwidth. See `quantization`. This is a *histlen*, not *bincount*.
+		See `dataformat`.
+		
+	weightlevels : `int`
+		Like *activationlevels*, but for weights.
+		
+	nummacs : `int`
+		The number of multiplication results, which are to be summed into one
+		single scalar by the MVM application. *statisticdim* of these
+		applications run in parallel.
+		
+	randombehave : `scipy.stats.rv_continuous`, `str`
+		The random characteristics of weights and activations. Pass a fully
+		functional model (e.g. `scipy.stats.norm`) or a `str`:
+			
+		- *"uniform"* uses a uniform model giving all values same probability.
+		
+		- *"norm"* uses a normal distribution, where rare max/min values are
+		  clipped into max/min bins.
+		  
+		- *"truncnorm"* also uses a normal distribution, but the outliers never
+		  occur and never result in clipping.
+		  
+		- *"fullscale"* always draws the same and maximum positive value.
+		 
+	randomclips : (`list` or `tuple`) of `float`
+		WHere to clip the *randombehave*. This is relevant for constructing
+		*norm* and *clipnorm* and tells in terms of multiples of
+		:math:`\sigma` where to place max/min bins.
+
+	Raises
+	------
+	`IndexError`
+		If *randomclips* does not have exactly two elements.
+
+	Returns
+	-------
+	`dict`
+		Keys are *str* and values are `numpy.ndarray`:
+			
+		activations
+			Shape *[statisticdim, nummacs, activationlevels\*2+1]*. Dtype
+			`float` in *dostochastic* (see `statstoc`), where this represents
+			probabilities of activation values, which are the same over
+			*nummacs*. In *dostatistic* and *dostochastic*, the shape is the
+			same, but *dostatistic* uses `int`, while *dostatisticdummy*
+			uses `bool`. See also `dataformat`.
+			
+		activationsint
+			Shape *[statisticdim, nummacs, 1]*. Dtype `int`. In *dostatistic*
+			and *dostatisticdummy*, these are the actually drawn activations.
+			In *dostochastic*, these are the mid-bin values and the mid-axis
+			is *activationlevels\*2+1* long and not *nummacs*.
+
+		weights
+			Like *activations*.
+			
+		weightsint
+			Like *activationsint*.
+
+		activationhistidx
+			Shape *[activationlevels\*2+1, weightlevels\*2+1]*. Denotes an `int`
+			index to draw *activations* from when generating all combinations
+			of activations and weights.
+
+		weighthistidx
+			Like *activationhistidx*.
+			
+		activationformult
+			Elements from *activations*, but reshaped using the index rule 
+			*activationhistidx*. This goes into multiplication.
+		
+		weightformult
+			Like *activationformult*.
+
+		multiplied
+			Dtype like *activations*. But the shape is
+			*[statisticdim, nummacs, activationlevels\*2+1, weightlevels\*2+1]*.
+			For each statistic computation and each MAC operation, all combinations
+			of possible activation and weight levels are present. In
+			*dostatistic* and *dostatisticdummy*, the 
+			*[activationlevels\*2+1, weightlevels\*2+1]* matrix is a one-hot one.
+			The indices of the one-hot dot represent the used activation and
+			weight value in that operation. In *dostochastic*, the sum
+			over the *[activationlevels\*2+1, weightlevels\*2+1]* matrix is
+			*1.0* and represents probabilities of all possible multiplication
+			results. See `statstoc` and `dataformat`.
+
+		firstmaxhistvalue
+			Shape *[1, nummacs, 1]*. Dtype as *activations*. Can be used as
+			*maxhistvalue* in first call of `reduceSum`. See `maxhistvalue`.
+	"""
 	
 	#Length of statistics dimension, which we always keep
 	dostatistic = statisticdim is not None
