@@ -3124,7 +3124,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 	"""`float` : Assert SNR similarity with *0.1* dB precision."""
 	
 	#Groups for reference
-	refgroups=(
+	REF_GROUPS=(
 			dict(
 					reduceaxes=(MAC_AXIS,),
 					chunksizes=(8,),
@@ -3174,7 +3174,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 	"""`tuple` of `dict` : Template for *groups* in `simulateMvm`."""
 	
 	#Common arguments for simulateMvm
-	commonargs = dict(
+	COMMON_ARGS = dict(
 			selfcheckindummy=True,
 			activationlevels=7,
 			weightlevels=3,
@@ -3190,7 +3190,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 	#because teh cliplimit first introduces a gain varying between stat
 	#and stoc and that moves where quantize levels sit at the output.
 	#Also remember if the raw data is stored to file.
-	finalintermcases = (
+	FINAL_INTERM_CASES = (
 			#Quantize finalize, but with cliplimit in intern stage
 			("finalclipbefore", 1., True,),
 			#Quantize only in final group
@@ -3202,7 +3202,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 			#Quantize in intermediate group only
 			("intermediateonly", 100., False),
 	)
-	"""`tuple` : How to get *quantized* results by modifying *refgroups*."""
+	"""`tuple` : How to get *quantized* results by modifying `REF_GROUPS`."""
 	
 	#Remember statisticdim and name of a run und then do the same stuff
 	#statistic and stochastic. Also remember whether stochastic run
@@ -3210,7 +3210,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 	#But well, statistic computation just gives a slightly different stddev
 	#and if we correct that we no more have the same SNR. So rather keep it.
 	#Also remember if data is stored to file
-	stocstatcases = (
+	STOC_STAT_CASES = (
 			(None, "Stochastic", False, True,),
 			(10000, "Statistic", False, False,),
 	)
@@ -3236,7 +3236,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 		)
 		
 		#Check that computed SNRs between statstoccases are similar
-		for finalintermconfidencerelax in cls.finalintermcases:
+		for finalintermconfidencerelax in cls.FINAL_INTERM_CASES:
 			finalinterm, confidencerelax, _ = finalintermconfidencerelax
 			snrsfinalinterm = snrs[finalinterm]
 			#Do not compare across aded final or interm quantization, there the
@@ -3256,7 +3256,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 	@classmethod
 	def pytest_generate_tests(cls, metafunc):
 		if "unquantQuantComparisonPlotCase" in metafunc.fixturenames:
-			cases = itertools.product(cls.finalintermcases, cls.stocstatcases)
+			cases = itertools.product(cls.FINAL_INTERM_CASES, cls.STOC_STAT_CASES)
 			cases, ids = itertools.tee(cases)
 			ids = (str(dict(finalinterm=i[0], statstoc=j[1])) for i, j in ids)
 			metafunc.parametrize("unquantQuantComparisonPlotCase", cases, ids=ids)
@@ -3278,7 +3278,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 		if finalinterm != lastfinalinterm[0]:
 			#Unquantized groups in principle are the references
 			unquantgroups.clear()
-			unquantgroups.extend(copy.deepcopy(cls.refgroups))
+			unquantgroups.extend(copy.deepcopy(cls.REF_GROUPS))
 			#When adding intermediate quant, the final quant exists in both
 			if finalinterm == "intermediate":
 				unquantgroups[-1]["cliplimitstddev"] = 3
@@ -3333,7 +3333,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 		#Unquantized experiment
 		retunquant = simulateMvm(
 				groups=unquantgroups,
-				**cls.commonargs,
+				**cls.COMMON_ARGS,
 				**caseargs,
 		)
 		
@@ -3366,7 +3366,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 		#Run quantized experiment
 		retquant = simulateMvm(
 				groups=cliplimitfixedgroups,
-				**cls.commonargs,
+				**cls.COMMON_ARGS,
 				**caseargs,
 		)
 		
@@ -3519,7 +3519,7 @@ class test_misc(BaseTestCase):
 				),
 		)
 		
-		commonargs = dict(
+		COMMON_ARGS = dict(
 				selfcheckindummy=True,
 				activationlevels=7,
 				weightlevels=3,
@@ -3540,7 +3540,7 @@ class test_misc(BaseTestCase):
 				statisticdim=None,
 				dostatisticdummy=False,
 				groups=commongroups,
-				**commonargs,
+				**COMMON_ARGS,
 		)
 		
 		#Create new group, where cliplimitfixed is set from stochastic experiment,
@@ -3555,7 +3555,7 @@ class test_misc(BaseTestCase):
 				statisticdim=10000,
 				dostatisticdummy=False,
 				groups=cliplimitfixedgroups,
-				**commonargs,
+				**COMMON_ARGS,
 		)
 		
 		#Extract single results
@@ -3617,7 +3617,7 @@ class test_misc(BaseTestCase):
 				"rb_uniform_sc_3_nm_64_al_3_wl_3_ic_3_fc_3_cs_10_fl_3_il_3",
 		)
 		
-		commonargs = dict(
+		COMMON_ARGS = dict(
 				runreduced=True,
 				runquiet=True,
 				processes=None,
@@ -3630,7 +3630,7 @@ class test_misc(BaseTestCase):
 		#results, as this is non readable
 		jsonfp = jsonpathscliced.open("w")
 		runAllExperiments(
-				**commonargs,
+				**COMMON_ARGS,
 				jsonfp=jsonfp,
 				iterbegin=0.3,
 				iterend=0.7,
@@ -3640,7 +3640,7 @@ class test_misc(BaseTestCase):
 		#Create results on top. Readable filepath keeps old results
 		jsonfp = jsonpathscliced.open("r+")
 		runAllExperiments(
-				**commonargs,
+				**COMMON_ARGS,
 				jsonfp=jsonfp,
 				iterbegin=None,
 				iterend=None,
@@ -3651,7 +3651,7 @@ class test_misc(BaseTestCase):
 		jsonfp = jsonpathfull.open("w")
 		runAllExperiments(
 				**{
-						**commonargs,
+						**COMMON_ARGS,
 						"runquiet" : False,
 				},
 				jsonfp=jsonfp,
