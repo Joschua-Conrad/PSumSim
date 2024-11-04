@@ -1590,7 +1590,7 @@ def reduceSum(
 	Parameters
 	----------
 	tosum : `numpy.ndarray`
-		This array i to be summed.
+		This array to be summed.
 		All simulation modes as described in `statstoc` are allowed.
 		
 	reduceaxes : `int`, ((`tuple` or `list`) of `int`)
@@ -2581,6 +2581,66 @@ def equalizeQuantizedUnquantized(
 			dostatistic,
 			dostatisticdummy,
 	):
+	"""Make two quantized and scaled histograms similar again.
+	
+	This adds padded bins to see where unquantized bins make it into quantized
+	bins. Reverted quantization leads to paddded bins just between the discrete
+	quantized levels. `quantizeClipScaleValues` is used for the up-scaling.
+	Results field *mergevaluess* is used to track how much quantization was
+	applied. Reverted clipping leads to bins padded at maximum and
+	minimum using `packHist`. After reverting quantization, this is simply
+	used to achieve the same bincount.
+	
+	See `quantization` and `clipping`.
+
+	Parameters
+	----------
+	retunquantized : `dict`
+		The result of an unquantized simulation from `simulateMvm`.
+		All simulation modes as described in `statstoc` are allowed.
+		Keys *results*, *maxhistvalue* and *mergevaluess* shall be present.
+		*results* and *maxhistvlaue* are only needed at *runidx*, but
+		*mergevaluess* is needed until *runidx*.
+		
+	retquantized : `dict`
+		The quantized result. Should have a shorter *histaxis* than
+		*retunquantized* and should have same simulation mode.
+		
+	runidx : `int`
+		Results of this simulation iteration are equalized.
+		
+	histaxis : `int`
+		Histogram axis. Often, `HIST_AXIS` is used.
+		
+	stataxis : `int`
+		The statistic axis. Often, `STAT_AXIS` is used.  Even in
+		*dostochastic*, this is needed and should refer to a length-1 dimension.
+		
+	dostatistic : `bool`
+		Simulation mode. See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		Simulation mode. See `statstoc`.
+
+	Raises
+	------
+	`IndexError`
+		If the *mergevaluess* accessed uring *runidx* do not have equal length,
+		or if *stataxis* and *histaxis* are the same.
+	`ValueError`
+		If the unquantized run seems to have introduced a stronger quanization.
+	`RuntimeError`
+		If equalization failed, because the quantized histogram is longer than
+		unqauntized one. Padding won't equalize the two then.
+
+	Returns
+	-------
+	unquantizedresult : `numpy.ndarray`
+		The *results* entry in *retunquantized* at *runidx*.
+	processed : `numpy.ndarray`
+		The equalized *results* entry in *retquantized* at *runidx*.
+
+	"""
 	
 	checkStatisticsArgs(
 			dostatistic=dostatistic,
@@ -2591,8 +2651,11 @@ def equalizeQuantizedUnquantized(
 	quantizedresult = retquantized["results"][runidx]
 	unquantizedmaxhistvalue = retunquantized["maxhistvalues"][runidx]
 	quantizedmaxhistvalue = retquantized["maxhistvalues"][runidx]
-	unquantizedmergevaluess = retunquantized["mergevaluess"]
-	quantizedmergevaluess = retquantized["mergevaluess"]
+	#Access mergevauess until including runidx. If that would be -1+1=0,
+	#we would access nothing and rather set None
+	untilrunidx = (runidx + 1) or None
+	unquantizedmergevaluess = retunquantized["mergevaluess"][:untilrunidx]
+	quantizedmergevaluess = retquantized["mergevaluess"][:untilrunidx]
 	
 	histaxis, = normalizeAxes(axes=histaxis, referencendim=quantizedresult.ndim)
 	stataxis, = normalizeAxes(axes=stataxis, referencendim=quantizedresult.ndim)
@@ -2735,6 +2798,48 @@ def equalizeQuantizedUnquantized(
 	return unquantizedresult, processed
 
 def applyCliplimitStddevAsFixedFrom(groups, fromreturn, onlyatindices):
+	"""Set *cliplimitfixed* in arguments for `simulateMvm` from its results.
+	
+	See `clipping`. Use this to let one simulation (e.g. stochastic one) find
+	a standard deviation and a *cliplimitstddev* relative to that, then
+	get the *cliplimitfixed* from the simulation results and apply that without
+	any change and without re-deriving standard deviation in a second
+	(e.g. statistic) simulation.
+
+	Parameters
+	----------
+	groups : `dict`
+		Argument for `simulateMvm`. Is deep-copied (see `copy.deepcopy`).
+		At each simulation iteration, *cliplimitstddev* is unset and
+		instead *cliplimitfixed* is set from results. But only, if
+		*cliplimitstddev* actually had some value. If the *groups* do not
+		have it set, they want no cliplimit at all and we keep that decision.
+		If the *cliplimitfixed* is written and is `None`, that is allowed.
+		
+	fromreturn : `dict`
+		Results from a `simulateMvm` call. The result key *cliplimitfixeds*
+		is needed.
+		
+	onlyatindices : `None`, ((`list` or `tuple`) of `int`)
+		If given, only at these simulation iterations a transfer from
+		*fromreturn* to *groups*.
+		
+		.. warning::
+			Negative indices are ignored.
+
+	Raises
+	------
+	`IndexError`
+		If *fromreturn* does not have as many *cliplimitfixeds* as *groups*
+		are given.
+
+	Returns
+	-------
+	newgroups : `dict`
+		A deep copy of *groups*, where at *onlyatindices* a given key
+		*cliplimitstddev* is replaced with *cliplimitfixed*
+
+	"""
 	
 	cliplimitfixeds = tuple((i for i in fromreturn["cliplimitfixeds"]))
 	
@@ -2775,6 +2880,80 @@ def computeSqnr(
 			dostatisticdummy,
 			errordtype,
 	):
+	"""Compute the SQNR of a quantized/clipped histogram in comparison to
+	another one.
+	
+	In *dostatistic* and *dostatisticdummy*, that is easy, as for each separate
+	computation the error can be determined. But in *dostochastic*, the
+	error is not an error in y-axis of a histogram, but rather a distance in
+	x-axis where a quantized bin was moved weighted by probability.
+	So the stochastic computation starts at the center bin and tracks how much
+	probability was given in excess and computes from that where an unquantized
+	bin has been moved in quantized histogram. Negative and positiv histogram
+	side are treated singly to keep histogram symmetry around 0.
+
+	Parameters
+	----------
+	unquantized : `numpy.ndarray`
+		The reference histogram with the clean signal without noise.
+		All simulation modes as described in `statstoc` are allowed.
+	quantized : `numpy.ndarray`
+		The quantized histogram with quantization/clipping noise on top.
+		Must have same simulation mode and length as *unquantized*.
+		Use `equalizeQuantizedUnquantized` to achieve that.
+		
+	histaxis : `int`
+		Histogram axis. Often, `HIST_AXIS` is used.
+		
+	stataxis : `int`
+		The statistic axis. Often, `STAT_AXIS` is used.  Even in
+		*dostochastic*, this is needed and should refer to a length-1 dimension.
+		
+	bincount : `int`
+		Number of bins needed to determine bin values using `getHistValues`.
+		
+	dostatistic : `bool`
+		Simulation mode. See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		Simulation mode. See `statstoc`.
+
+	errordtype : `type`
+		Something `numpy.array` would understand as *dtype*. Even in
+		*dostatistic* and *dostatisticdummy*, where we use `int` and `bool` in
+		histograms, the error is some floating-point dtype. Which one is
+		determined with this parameter. Just pass `str` "float" to get the best
+		platform-dependent dtype.
+
+	Raises
+	------
+	`ValueError`
+		If *unquantized* and *quantized* do not have same shape.
+	`IndexError`
+		If *stataxis* and *histaxis* are the same.
+
+	Returns
+	-------
+	snrlog : `float`
+		The SQNR given in *dB*. Note that `numpy.inf` can occur here, if 
+		*unquantized* and *quantized* are the same.
+	errorprob : `numpy.ndarray`
+		The error in bin probabilities when comparing *unquantized* and
+		*quantized*. Even in *dostatistic* and *dostatisticdummy*, probabilities
+		are given. So *stataxis* here always has length 1, a *histaxis* is
+		*bincount* long and *errordtype* is used.
+		
+	errorpowerlinear : `numpy.ndarray`
+		In shape and dtype like *errorprob*, but this is a histogram, where
+		for each unquantized bin one can see which error power the bin
+		contributes. Unquantized values occuring very often or being quantized
+		to very different values contribute a large power.
+	errorpowersquared : `numpy.ndarray`
+		Like *errorpowerlinear*, but the error made when quantizing each bin is
+		squared. Usefulf when computing with signal powers, e.g. for deriving
+		*snrlog*.
+
+	"""
 	
 	checkStatisticsArgs(
 			dostatistic=dostatistic,

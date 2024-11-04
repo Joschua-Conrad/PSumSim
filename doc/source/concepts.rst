@@ -46,6 +46,9 @@ The upper example has *bincount* *15*. Its *histlen* is *7* referring to the
 maximum magnitude. *2* is the only valid even *bincount* and then by definition
 refers to *histvalues* *0* and *1*.
 
+In general, if a histogram has more than a single bin with value *1*, it is
+expected to have a sum over probabilities of *1.0*.
+
 .. _statstoc:
 
 Stochastic vs. Statistic
