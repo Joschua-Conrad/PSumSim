@@ -79,44 +79,84 @@ class BaseTestCase:
 		
 		return tmp_path_factory.mktemp(basename="Json")
 	
+@enum.unique
+class SHAPE_ENUM(enum.Enum):
+	"""Defined names for numbers to later compute expected shapes from.
+	
+	Needed in `test_simulation`.
+	"""
+	
+	MAC_HIST_ENUM = enum.auto()
+	"""*histlen* along `MAC_AXIS`."""
+	
+	MAC_BINS_ENUM = enum.auto()
+	"""*bincount* along `MAC_AXIS`."""
+	
+	STOCH_ENUM = enum.auto()
+	"""*statisticdim* along `STAT_AXIS`."""
+	
+	ACT_BINS_ENUM = enum.auto()
+	"""*bincount* along `ACT_AXIS`."""
+	
+	WEIGHT_BINS_ENUM = enum.auto()
+	"""*bincount* along `WEIGHT_AXIS`."""
+	
+	ACT_HIST_ENUM = enum.auto()
+	"""*histlen* along `ACT_AXIS`."""
+	
+	WEIGHT_HIST_ENUM = enum.auto()
+	"""*histlen* along `WEIGHT_AXIS`."""
+	
+	ACT_STEPS_IN_STOCH = enum.auto()
+	"""Like `ACT_BINS_ENUM`, but *1* in stochastic runs."""
+	
+	WEIGHT_STEPS_IN_STOCH = enum.auto()
+	"""Like `WEIGHT_BINS_ENUM`, but *1* in stochastic runs."""
+	
+	MAC_IN_NON_STOCH = enum.auto()
+	"""Like `MAC_HIST_ENUM`, but *1* in statistic runs."""
+	
+	MAC_CHUNKED_ENUM = enum.auto()
+	"""Exemplary chunkcount when chunking `MAC_AXIS` with *chunksize* 5."""
+	
+	HIST_TO_BINS_ENUM = enum.auto()
+	"""Call `histlenToBincount`."""
+	
+	ROUND = enum.auto()
+	"""Call `round`."""
+	
+	CLIPLIMIT_MERGEVALUE_ENUM = enum.auto()
+	"""Estimate shape change made by `quantizeClipScaleValues`."""
 	
 class test_simulation(BaseTestCase):
-	#Factor for tolerated amplitude error
+	"""Test `simulateMvm`.
+	
+	Includes `reduceSum`, `probabilisticAdder`, `quantizeClipScaleValues`
+	and `getHistStddev`.
+	
+	"""
+
 	RELATIVE_CONFIDENCE_RELAX = 10.
-	#WHich share of experiments is ok to fail. Because we possibly compute
-	#quite small histograms and still want to allow an integer number of
-	#failed bins, we make this criterion weak and in return the relative
-	#relax more strong.
+	"""`float` : Relax factor in assertion confidence for statistic results."""
+
 	RELATIVE_SAMPLE_CONFIDENCE = 0.1
+	"""`float` : Share of assertions allowed to fail in statistic assertion.
 	
-	#Over how many MACs to avergae in statistics
+	Because we possibly compute
+	quite small histograms and still want to allow an integer number of
+	failed bins, we make this criterion weak and in return the relative
+	relax more strong.
+	"""
+	
 	AVERAGEOVER = 1000
-	#An absolute tolerance for comparing stochastic numbers, which are
-	#expected to be the same. Pretty relaxed, as numeric errors can kick
-	#in especially when having very long histograms with many weak bins.
-	ABSOLUTE_GROUP_COMPARE_TOLERANCE = 1e-6
-	#Tolerance for stochastic nubers having a sum of 1 over a histogram
-	HIST_SUM_TOLERANCE = 1e-6
+	"""`int` : *statisticdim* for running statistic `simulateMvm`."""
 	
-	#Defined names for numbers to later compute expected shapes from
-	@enum.unique
-	class SHAPE_ENUM(enum.Enum):
-		MAC_HIST_ENUM = enum.auto()
-		MAC_BINS_ENUM = enum.auto()
-		STOCH_ENUM = enum.auto()
-		ACT_BINS_ENUM = enum.auto()
-		WEIGHT_BINS_ENUM = enum.auto()
-		ACT_HIST_ENUM = enum.auto()
-		WEIGHT_HIST_ENUM = enum.auto()
-		ACT_STEPS_IN_STOCH = enum.auto()
-		WEIGHT_STEPS_IN_STOCH = enum.auto()
-		MAC_IN_NON_STOCH = enum.auto()
-		HIST_CHUNK_SIZE = enum.auto()
-		MAC_CHUNKED_ENUM = enum.auto()
-		MAC_CHUNKED_MERGED_ENUM = enum.auto()
-		HIST_TO_BINS_ENUM = enum.auto()
-		ROUND = enum.auto()
-		CLIPLIMIT_MERGEVALUE_ENUM = enum.auto()
+	ABSOLUTE_GROUP_COMPARE_TOLERANCE = 1e-6
+	"""`float` : Absolute tolerance for asserting stochastic numbers."""
+	
+	HIST_SUM_TOLERANCE = 1e-6
+	"""`float` : Absolute tolerance for asserting sum over histogram
+	being *1.0*."""
 		
 	#Define which MAC operatiosn to test. Also give expected shapes after
 	#each test in the form of names values to multiply to retrieve
@@ -2029,41 +2069,35 @@ class test_simulation(BaseTestCase):
 			shapelookup = {
 					#Length of statistics axis, which is 1 in stochastic
 					#or for some special fields
-					cls.SHAPE_ENUM.STOCH_ENUM : ((dummystatax and 1) or statlen),
+					SHAPE_ENUM.STOCH_ENUM : ((dummystatax and 1) or statlen),
 					#Number of MACs we sum over
-					cls.SHAPE_ENUM.MAC_HIST_ENUM : nummacs,
+					SHAPE_ENUM.MAC_HIST_ENUM : nummacs,
 					#Bins the maccounts create in a hitogram
-					cls.SHAPE_ENUM.MAC_BINS_ENUM : histlenToBincount(histlen=nummacs),
+					SHAPE_ENUM.MAC_BINS_ENUM : histlenToBincount(histlen=nummacs),
 					#Maximum value activation/weight can have
-					cls.SHAPE_ENUM.ACT_HIST_ENUM : (levels["activationlevels"]),
-					cls.SHAPE_ENUM.WEIGHT_HIST_ENUM : (levels["weightlevels"]),
+					SHAPE_ENUM.ACT_HIST_ENUM : (levels["activationlevels"]),
+					SHAPE_ENUM.WEIGHT_HIST_ENUM : (levels["weightlevels"]),
 					#Histogram lengths
-					cls.SHAPE_ENUM.ACT_BINS_ENUM : actbincount,
-					cls.SHAPE_ENUM.WEIGHT_BINS_ENUM : weightbincount,
+					SHAPE_ENUM.ACT_BINS_ENUM : actbincount,
+					SHAPE_ENUM.WEIGHT_BINS_ENUM : weightbincount,
 					#Number of steps activation/weight can have.
 					#But only in stochastics. Otherwise, this is 1.
-					cls.SHAPE_ENUM.ACT_STEPS_IN_STOCH : ((isstochastic and actbincount) or 1), 
-					cls.SHAPE_ENUM.WEIGHT_STEPS_IN_STOCH : ((isstochastic and weightbincount) or 1), 
+					SHAPE_ENUM.ACT_STEPS_IN_STOCH : ((isstochastic and actbincount) or 1), 
+					SHAPE_ENUM.WEIGHT_STEPS_IN_STOCH : ((isstochastic and weightbincount) or 1), 
 					#Number of macs again, but only in non-stochastics.
 					#Otherwise this is 1.
-					cls.SHAPE_ENUM.MAC_IN_NON_STOCH : (((not isstochastic) and nummacs) or 1),
-					#THe effective (possibly limited) chunksize in
-					#experiment chunking an additional histaxis
-					cls.SHAPE_ENUM.HIST_CHUNK_SIZE : min((levels["activationlevels"] * levels["weightlevels"]), 35),
+					SHAPE_ENUM.MAC_IN_NON_STOCH : (((not isstochastic) and nummacs) or 1),
 					#The chunk count yielded from creating fractional
 					#number of chunks along MAC aixs in experiment
-					cls.SHAPE_ENUM.MAC_CHUNKED_ENUM : nummacchunks,
-					#Ratio of how much smaller the MAC ax without
-					#residual elems is
-					cls.SHAPE_ENUM.MAC_CHUNKED_MERGED_ENUM : round(5 * 0.5) * (nummacchunks - 1) + round((nummacs - ((nummacchunks - 1) * 5)) * 0.5),
+					SHAPE_ENUM.MAC_CHUNKED_ENUM : nummacchunks,
 					#Turns a hist to bin counts. Special enum
-					cls.SHAPE_ENUM.HIST_TO_BINS_ENUM : lambda e: histlenToBincount(histlen=e),
+					SHAPE_ENUM.HIST_TO_BINS_ENUM : lambda e: histlenToBincount(histlen=e),
 					#Rounds a number
-					cls.SHAPE_ENUM.ROUND : lambda e: round(e),
+					SHAPE_ENUM.ROUND : lambda e: round(e),
 					#Function, which scales shape according to cliplimitfixed
 					#from runidx and mergevalues. Pass current expected,
 					#valuescalidx and mergevalues
-					cls.SHAPE_ENUM.CLIPLIMIT_MERGEVALUE_ENUM : lambda e, vsidx, mv : round(round(e / runobj["cliplimitfixeds"][vsidx]) / max(mv / runobj["cliplimitfixeds"][vsidx], 1)),
+					SHAPE_ENUM.CLIPLIMIT_MERGEVALUE_ENUM : lambda e, vsidx, mv : round(round(e / runobj["cliplimitfixeds"][vsidx]) / max(mv / runobj["cliplimitfixeds"][vsidx], 1)),
 			}
 			#The value only makes it to stock and is compared between
 			#groups, if it gives a shape for each group.
@@ -2133,7 +2167,7 @@ class test_simulation(BaseTestCase):
 					#This also works nice, as float precision usually
 					#rounds down and ceil gets us to the correct value
 					#then.
-					#Use cls.SHAPE_ENUM.ROUND if you want something else.
+					#Use SHAPE_ENUM.ROUND if you want something else.
 					expandedentry = int(math.ceil(expandedentry))
 					#Remember length of this axis
 					expandedshape.append(expandedentry)
