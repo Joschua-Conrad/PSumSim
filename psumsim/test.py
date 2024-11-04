@@ -49,7 +49,7 @@ class BaseTestCase:
 		Parameters
 		----------
 		tmp_path_factory : `pytest.TempPathFactory`
-			Generic fixture used to create module-scoped temp dirs.
+			Generic `pytest.fixture` used to create module-scoped temp dirs.
 
 		Returns
 		-------
@@ -69,7 +69,7 @@ class BaseTestCase:
 		Parameters
 		----------
 		tmp_path_factory : `pytest.TempPathFactory`
-			Generic fixture used to create module-scoped temp dirs.
+			Generic `pytest.fixture` used to create module-scoped temp dirs.
 
 		Returns
 		-------
@@ -133,6 +133,10 @@ class test_simulation(BaseTestCase):
 	
 	Includes `reduceSum`, `probabilisticAdder`, `quantizeClipScaleValues`
 	and `getHistStddev`.
+	
+	`pytest_generate_tests` generates a huge list of `simulateMvm` results
+	specified by `GROUPS`. The actual tests get these results as `pytest.fixture`
+	with *class* scope and then assert the results.
 	
 	"""
 
@@ -1570,6 +1574,21 @@ class test_simulation(BaseTestCase):
 			),
 		),
 	)
+	"""`tuple` : Specification of calls made to `simulateMvm`.
+	
+	Lists for each call and for each simulation step:
+		
+	- The *groups* argument
+	
+	- Expected shape specified using product of `SHAPE_ENUM`
+	
+	- The histogram axis or even axes
+	
+	- Name under which to store results
+	
+	- Names of results to compare to
+	
+	"""
 	
 	#Expected shapes for all fields in return value of simulation
 	#Remember expected shape for
@@ -1782,6 +1801,8 @@ class test_simulation(BaseTestCase):
 					False,
 			),
 	)
+	"""`tuple` : Expected dtypes and shapes of results returned by
+	`simulateMvm`."""
 	
 	#Which weight and activation levels to check.
 	#DO not check excessively large levels, because these are slow
@@ -1796,15 +1817,21 @@ class test_simulation(BaseTestCase):
 					weightlevels=3,
 			),
 	)
+	"""`tuple` : Specification of simulated activation and weight levels.
+	
+	Combine different values and also test very small counts, which makes
+	it easier to track errors down."""
 	
 	#Number of macs matching chunksize or not
 	NUMMACS = (
 			16,
 			8,
 	)
+	"""`tuple` Specification of tested *nummacs*."""
 	
 	#If set, groups are not compared against each other
 	SKIP_GROUP_COMPARISON = False
+	"""`bool` : If set, skip comparison of results across runs."""
 	
 	#Activating for debugging jut a single case
 	#Deactivate group comparison, because groups to compare to might not
@@ -1816,6 +1843,33 @@ class test_simulation(BaseTestCase):
 		
 	@classmethod
 	def statStocCompare(cls, stat, stoc, stataxis, msg=None):
+		r"""Assert statistic and stochastic result equality.
+
+		See `statstoc`.
+		
+		An assertion fails, if for *N* statistic results a share of
+		`RELATIVE_SAMPLE_CONFIDENCE` results has a deviation larger than
+		:math:`\frac{1}{\sqrt N}` times `RELATIVE_CONFIDENCE_RELAX`.
+		So roughly a more exact assertion is made for more statistical results.
+		
+		Parameters
+		----------
+		stat : `numpy.ndarray`
+			Result from *dostatisticdummy*.
+			
+		stoc : `numpy.ndarray`
+			Result from *dostochastic*.
+			
+		stataxis : `int`
+			The statistic axis. Often, `STAT_AXIS` is used. Even in
+			*dostochastic*, this is needed and should refer to a length-1
+			dimension.
+			
+		msg : `str`, `None`, optional
+			Message for failed assertion. Default is `None`.
+
+		"""
+		
 		stataxis, = normalizeAxes(axes=stataxis, referencendim=stat.ndim)
 		#Find over how many elements we average, as that influences assertion
 		#precision
@@ -3622,26 +3676,97 @@ class test_misc(BaseTestCase):
 		lastocc = occ
 		
 class test_pytestFeatures:
+	"""Simple tests asserting that the way we use `pytest` works.
+	
+	We need
+	
+	#. A state filled by test functions and evaluated once all tests are done
+	
+	#. A generator generating a ton of testcases
+	
+	in a *class* scope to do expensive computations invoked in `pytest.fixture` just
+	once and to be able to collect information across test functions."""
 		
 	@classmethod
 	def pytest_generate_tests(cls, metafunc):
+		"""Generate parameterized testcases from function.
+		
+		We here do not parameterize test functions, but instead fixtures.
+		A `pytest.fixture` *caseraw* is here created and parameterized with two
+		strings. This emulates a creation of test cases from some more
+		complex code.
+		
+		This hook is called by `pytest`.
+		See `_pytest.hookspec.pytest_generate_tests`.
+
+		Parameters
+		----------
+		metafunc : `pytest.Metafunc`
+			If a requested `pytest.fixture` *caseraw* is found here, it is
+			parameterized.
+		"""
 		if "caseraw" in metafunc.fixturenames:
 			metafunc.parametrize("caseraw", ("Hallo", "Welt"), scope="class")
 			
 	@classmethod
 	@pytest.fixture(scope="class")
 	def caseprocessed(cls, caseraw):
+		"""Process a raw case and return something.
+		
+		This `pytest.fixture` invokes the parameterized *caseraw* fixture setup in
+		`pytest_generate_tests` and then does some expensive computation on
+		each case: here `len`.
+
+		Parameters
+		----------
+		caseraw : `str`
+			`pytest.fixture` created in `pytest_generate_tests`.
+
+		Returns
+		-------
+		`int`
+			Length of *caseraw*.
+
+		"""
+		
 		return len(caseraw)
 	
 	@classmethod
 	@pytest.fixture(scope="class")
 	def sumassertion(cls):
+		"""`pytest.fixture` generating a state.
+		
+		The fixture object is a mutable `list`, which is created with a
+		*class* scope and once the scope ended (all test ran), the result
+		is asserted. We here assert that tests took `caseprocessed` and added
+		1.
+		
+		Yields
+		------
+		allpostcases : `list`
+			Filled by test functions.
+
+		"""
+		
 		allpostcases = list()
 		yield allpostcases
 		assert sum(allpostcases) == len("Hallo") + len("Welt") + 2
 		
 	@classmethod
 	def test_setup(cls, caseprocessed, sumassertion):
+		"""An exemplary test function.
+
+		Parameters
+		----------
+		caseprocessed : `int`
+			Returned by `pytest.fixture` `caseprocessed`. 1 is added on this
+			number.
+		sumassertion : `list`
+			Returned by `pytest.fixture` `sumassertion`. This is the test
+			state, where we add the increased number.
+
+		"""
+		
 		assert caseprocessed > 0
 		sumassertion.append(caseprocessed+1)
 		
