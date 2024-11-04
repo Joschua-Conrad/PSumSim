@@ -32,6 +32,7 @@ in *docs/build*. You need Python3 to be installed already. Packages
 system- or user-wide. But PSumSim and its dependencies are installed
 isolated into a folder *venv*.
 
+(readmeinstall)=
 ## How to Install
 This provides a python package. Downloading all files and using
 ```bash

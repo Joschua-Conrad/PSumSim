@@ -1,3 +1,18 @@
+"""Running a huge number of `simulateMvm` and `computeSqnr` calls.
+
+Use functions defined here for exploring an MVM desing space.
+
+The application first reduces along `ACT_AXIS`, `WEIGHT_AXIS` and
+lastly along `MAC_AXIS`, but this one is chunked into tiles fitting on MVM
+hardware. The results are clipped and *intermediate quantization* is applied
+(like by an ADC in an in-memory compute MVM [IMC]_). After
+combining the results of the chunks, the MVM algorithm applies a
+*final quantization*.
+
+When wanting to run an own design-space exploration, one probably needs to
+change code in here. Check `readmeinstall` and use an *editable* installation
+in that case."""
+
 import collections
 import re
 import itertools
@@ -13,13 +28,30 @@ from .simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equali
 from psumsim import __version__
 
 NUMMACS = [64, 128,]
-#A chunksize equal to nummacs is a rejected run. Instead give None
+"""`list` of `int`
+*nummacs* to explore."""
+
 CHUNKSIZES = [None, 10, 32, 64, 100, 128,]
-#None should come first to generate SNR references first.
+"""`list` of (`int`, `None`)
+Chunksizes to explore. `None` uses no chunking and only *final quantization*
+is applied."""
+
 LEVELS = [None, 1, 3, 7, 15, 31,]
+"""`list` of (`int`, `None`)
+Number of levels to use to draw activations and weights and to quantize.
+"""
+
 RANDOM_BEHAVES = ["uniform", "norm", "truncnorm",]
+"""`list` of `str`
+Random models to draw actvations and weights from.
+See `generateSimulationOperands`."""
+
 #Again, first list None to first generate references
 CLIP_LIMITS = [None, "occ", 3]
+"""`list` of (`str`, `None`, `int`, `float`)
+Cliplimits applied when quantizing and drawing operands.
+See `clipping` and `generateSimulationOperands`.
+"""
 
 RUN_DESCRIPTION_CORE_CLS = collections.namedtuple(
 		typename="RUN_DESCRIPTION_CORE_CLS",
@@ -47,8 +79,68 @@ RUN_DESCRIPTION_CORE_CLS = collections.namedtuple(
 				"skipthisrun",
 		),
 )
+"""`collections.namedtuple` : All named fields to describe a single experiment.
+
+This defines which information is needed to define a single experiment from
+all the many ones exploring design space.
+
+nummacs
+	Drawn from `NUMMACS` and forwarded to `simulateMvm`.
+	
+chunksize
+	Drawn from `CHUNKSIZES`. If `None`, there is no chunking of `MAC_AXIS` and
+	only final quantization.
+
+activationlevels
+	Drawn from `LEVELS` and forwarded to `generateSimulationOperands`.
+	
+weightlevels
+	Drawn from `LEVELS` and forwarded to `generateSimulationOperands`.
+	
+intermediatelevels
+	Drawn from `LEVELS` and forwarded to `simulateMvm` for parameterizing
+	intermediate quantization of chunked results. Note that this is a
+	*histlen* (see `dataformat`). Is forwarded with a negative sign.
+	
+finallevels
+	Drawn from `LEVELS` and forwarded to `simulateMvm` for parameterizing
+	final quantization of the overall result. Note that this is a
+	*histlen* (see `dataformat`). Is forwarded with a negative sign.
+	
+intermediatecliplimit
+	Drawn from `CLIP_LIMITS`. Forwarded to `simulateMvm` for parameterizing
+	intermediate quantization of chunked results.
+	
+finalcliplimit
+	Drawn from `CLIP_LIMITS` and forwarded to `simulateMvm` for parameterizing
+	final quantization of the overall result.
+	
+randombehave
+	Drawn from `RANDOM_BEHAVES` and forwarded to `generateSimulationOperands`.
+	
+sqnrreference
+	`None` or an instance of `RunDescription`. This run generates the reference
+	for `computeSqnr`. If intermediate and final quantization is used, the reference
+	has only final quantization but is similar otherwise. If only final
+	quantization is used, the reference has no quantization. If no quantization
+	is used, there is no reference and there will be no SQNR.
+	
+issqnrreference
+	`bool`. Is set for experiments, which are needed as SQNR reference somewhere.
+	
+skipthisrun
+	`bool`. Is set, if the specified experiment shall be skipped. There are
+	several reasons coded in `RunDescription.__new__`. It e.g. does not
+	make sense to have a *chunksize*, if there is no intermediate quantization.
+	The number of weight levels cannot be higher than number of activation levels
+	to prevent redundant cases. Final or intermediate clipping can only work,
+	if the corresponding quantization is activated, too.
+"""
 
 class RunDescription(RUN_DESCRIPTION_CORE_CLS):
+	"""Wrapper for `RUN_DESCRIPTION_CORE_CLS`.
+	
+	This adds more conversion methods to the experiment description."""
 	
 	#RE to turn a run description identifier back into an object
 	STR_TO_RUN_DESCRIPTION_RE = re.compile((
@@ -63,9 +155,30 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			r"fl_(?P<finallevels>[^_]+)_"
 			r"il_(?P<intermediatelevels>[^_]+)"
 	))
+	"""`re.Pattern` : Compiled regular expression to turn `str` experiment
+	descriptions back to objects."""
 	
 	@classmethod
 	def cliplimitFilter(cls, val):
+		"""Normalize a `CLIP_LIMITS` type.
+		
+		`None` is kept, even if given as `str`. `float` is kept. `int` is
+		turned to `float`. If any other value can be converted to `float`,
+		`float` is kept. Any value still not matching is converted to
+		`str`.
+		
+		Parameters
+		----------
+		val : `None`, `str`, `float`, `int`, `object`
+			Value to normalize in type.
+
+		Returns
+		-------
+		val : `None`, `str`, `float`, `object`
+			Type-normalized value.
+
+		"""
+		
 		if val in (None, str(None)):
 			val = None
 		elif isinstance(val, (float, int)):
@@ -80,6 +193,22 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 	
 	@classmethod
 	def levelChunksizeFilter(cls, val):
+		"""Normalize a `CHUNKSIZES` or `LEVELS` type.
+		
+		`None` is kept, even if given as `str`. Everything else is converted to
+		`int`.
+		
+		Parameters
+		----------
+		val : `None`, *"None"*, `float`, `int`
+			Value to normalize in type.
+
+		Returns
+		-------
+		val : `None`, `int`
+			Type-normalized value.
+		"""
+		
 		if val in (None, str(None)):
 			val = None
 		else:
@@ -102,6 +231,40 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			allowskip,
 			createdummy,
 		):
+			"""Create a new description of a single experiment.
+		
+			This basically replaces *__init__*, because that is how
+			the base class `collections.namedtuple` works.
+	
+			Parameters
+			----------
+			allowskip : `bool`
+				If *skipthisrun* is set and this is `False`, an exception is
+				raised.
+				
+			createdummy : `bool`
+				If set, *sqnrreference* is always `None`. This is mainly needed
+				to not possible get (recursive) loops of references pointing
+				to experiments they were requested from.
+				
+			Other Parameters
+			----------------
+			Values set as fields of `RUN_DESCRIPTION_CORE_CLS`. Fields
+			*sqnrreference*, *issqnrreference* and *skipthisrun* are set
+			automatically. `cliplimitFilter` and `levelChunksizeFilter` are
+			used for type normalization.
+	
+			Raises
+			------
+			`RuntimeError`
+				If the experiment would be skipped, but *allowskip* is not set.
+	
+			Returns
+			-------
+			`type`
+				Is retrieved thru the base class.
+	
+			"""
 		
 			#Normalize types
 			nummacs = int(nummacs)
@@ -238,6 +401,22 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			)
 		
 	def __getnewargs__(self):
+		"""Make objects of this class pickleable.
+		
+		See `pickle`. Allows to pass objects of this class thru
+		`multiprocessing`. We have fields, which we memorize but which we
+		do not support as arguments in `__new__` and vice-versa. This is
+		why this method needs fixing.
+
+		Returns
+		-------
+		newargs : `tuple`
+			Fields *sqnrreference*, *issqnrreference* and *skipthisrun*
+			are removed. *allowskip* is therefore always `True` (the
+			application unpickling stuff can check this) and
+			*createdummy* is set if we do not know a *sqnrreference*.
+		"""
+		
 		newargs = super().__getnewargs__()
 		#Remove args which can be re-created in __new__
 		newargs = newargs[:-3]
@@ -252,6 +431,20 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			allowskip,
 			createdummy,
 		):
+		"""Create a copy, possibly converting to/from dummies.
+		
+		Parameters
+		----------
+		allowskip : `bool`
+			See `__new__`.
+		createdummy : `bool`
+			See `__new__`.
+
+		Returns
+		-------
+		`RunDescription`
+			The copy.
+		"""
 		
 		#When recreating, skip fields that are re-derived in init
 		return type(self)(
@@ -261,6 +454,16 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 		)
 	
 	def toStr(self):
+		"""Convert to `str`.
+		
+		A format as recognized by `STR_TO_RUN_DESCRIPTION_RE` is used.
+
+		Returns
+		-------
+		result : `str`
+			Run description as `str`.
+
+		"""
 		
 		#If that does not destroy information, try to turn cliplimits, which can
 		#be float, into int to make strings shorter
@@ -294,6 +497,31 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 
 	@classmethod
 	def fromStr(cls, thestr, allowskip, createdummy):
+		"""Create object from `str`.
+		
+		`STR_TO_RUN_DESCRIPTION_RE` is used for the conversion.
+		
+		Parameters
+		----------
+		thestr : `str`
+			Convert this.
+		allowskip : `bool`
+			See `__new__`.
+		createdummy : `bool`
+			See `__new__`.
+
+		Raises
+		------
+		`ValueError`
+			If *thestr* does not match `STR_TO_RUN_DESCRIPTION_RE`.
+
+		Returns
+		-------
+		rundescription : `RunDescription`
+			Converted object.
+
+		"""
+		
 		rematch = cls.STR_TO_RUN_DESCRIPTION_RE.fullmatch(thestr)
 		if not rematch:
 			raise ValueError(
