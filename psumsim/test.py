@@ -1,3 +1,8 @@
+"""Tests for :py:mod:`psumsim`.
+
+`pytest` is the used test framework. There is a package entry-point for running
+tests from commandline."""
+
 import itertools
 import numpy as np
 import enum
@@ -14,9 +19,20 @@ from psumsim.plot import plotHist
 from psumsim.experiments import runAllExperiments, RunDescription						
 	
 class BaseTestCase:
+	"""Base class to inherit some useful methods."""
 
 	@classmethod
 	def concludeFigure(cls, fig):
+		"""Close a created plot figure.
+		
+		Add some other routine here to show figures.
+
+		Parameters
+		----------
+		fig : `matplotlib.figure.Figure`
+			Figure to close.
+
+		"""
 		#Contextual import, because this one takes long
 		from matplotlib import pyplot as plt
 		plt.close(fig)
@@ -24,11 +40,43 @@ class BaseTestCase:
 	@classmethod
 	@pytest.fixture(scope="module")
 	def tmp_numpy(cls, tmp_path_factory):
+		"""Fixture to create temporary directory to store numpy arrays.
+
+		The stored arrays were needed for creating plots for the PSumSim paper.
+		We want this to exist on a per-module scope to have all in one plcae.
+		Üer-class does not work, as this is a baseclass.
+		
+		Parameters
+		----------
+		tmp_path_factory : `pytest.TempPathFactory`
+			Generic fixture used to create module-scoped temp dirs.
+
+		Returns
+		-------
+		`pathlib.Path`
+			Created temporal path.
+		"""
+		
 		return tmp_path_factory.mktemp(basename="Numpy")
 	
 	@classmethod
 	@pytest.fixture(scope="module")
 	def tmp_json(cls, tmp_path_factory):
+		"""Fixture to create temporary directory to store JSON.
+
+		Like `tmp_numpy`. But these files are not needed after tests.
+		
+		Parameters
+		----------
+		tmp_path_factory : `pytest.TempPathFactory`
+			Generic fixture used to create module-scoped temp dirs.
+
+		Returns
+		-------
+		`pathlib.Path`
+			Created temporal path.
+		"""
+		
 		return tmp_path_factory.mktemp(basename="Json")
 	
 	

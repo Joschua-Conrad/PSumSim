@@ -219,7 +219,7 @@ intersphinx_mapping = {
 		'numpy': ('https://numpy.org/doc/stable/', None),
 		'scipy': ('https://docs.scipy.org/doc/scipy/', None),
 		'matplotlib': ('https://matplotlib.org/stable/', None),
-		'pytest' : ('https://docs.pytest.org/en/latest/', None),
+		'pytest' : ('https://docs.pytest.org/en/stable/', None),
 }
 
 # Define named link targets here
