@@ -134,9 +134,8 @@ class test_simulation(BaseTestCase):
 	Includes `reduceSum`, `probabilisticAdder`, `quantizeClipScaleValues`
 	and `getHistStddev`.
 	
-	`pytest_generate_tests` generates a huge list of `simulateMvm` results
-	specified by `GROUPS`. The actual tests get these results as `pytest.fixture`
-	with *class* scope and then assert the results.
+	Test cases are parameterized and results across test calls gathered as
+	described demonstrated in `test_pytestFeatures`.
 	
 	"""
 
@@ -1893,6 +1892,22 @@ class test_simulation(BaseTestCase):
 	@classmethod
 	@pytest.fixture(scope="class")
 	def simulationState(cls):
+		"""Generated and assert results across simulation results.
+		
+		This is like `test_pytestFeatures.sumassertion`. Tests fill this across
+		many tests and once the *class* scope of this fixture ends, assertions
+		are made.
+		
+		Yields
+		------
+		resultsstock : `dict`
+			Results are stored under names here to later assert their similarity,
+			meaninging that some `GROUPS` are different, but shall yield same
+			result.
+			
+		comparisons : `list`
+			These are the compare assertions memorized by tests."""
+		
 		#Store results for comparison across groups here. The data levels are:
 		#levels as str
 		#nummacs as str
@@ -1967,6 +1982,20 @@ class test_simulation(BaseTestCase):
 		
 	@classmethod
 	def pytest_generate_tests(cls, metafunc):
+		"""Parameterize testcases.
+		
+		This uses `itertools.product` to combine `GROUPS`, `LEVELS` and
+		`NUMMACS`. Works like `test_pytestFeatures.pytest_generate_tests` and
+		creates a *simulationCase* `pytest.fixture`.
+
+		Parameters
+		----------
+		metafunc : `pytest.Metafunc`
+			If a *simulationCase* fixture request is found here, it is
+			parameterized.
+
+		"""
+		
 		if "simulationCase" in metafunc.fixturenames:
 			cases = itertools.product(cls.GROUPS, cls.LEVELS, cls.NUMMACS)
 			cases, ids = itertools.tee(cases)
@@ -1976,6 +2005,25 @@ class test_simulation(BaseTestCase):
 	@classmethod
 	@pytest.fixture(scope="class")
 	def simulationResult(cls, simulationCase):
+		"""Make the actual `simulateMvm` calls for one specific combination.
+
+		Similar to `test_pytestFeatures.caseprocessed`.
+
+		Parameters
+		----------
+		simulationCase : `tuple`
+			One element from `GROUPS`, `LEVELS` and `NUMMACS` respectively.
+			This `pytest.fixture` is parameterized by `pytest_generate_tests`.
+
+		Returns
+		-------
+		:
+			All information from *simulationCase* as well as results from
+			*dostochastic*, *dostatistic*, *dostatisticdummy* as well as
+			full-scale results.
+
+		"""
+		
 		groupsshapeshistaxesgroupnames, levels, nummacs = simulationCase
 		groups = tuple((i[0] for i in groupsshapeshistaxesgroupnames))
 		shapesfromgroups = tuple((i[1] for i in groupsshapeshistaxesgroupnames))
@@ -2069,6 +2117,26 @@ class test_simulation(BaseTestCase):
 		
 	@classmethod
 	def test_shapesTypes(cls, simulationResult, subtests, simulationState):
+		"""Assert shapes and dtypes of result fields.
+		
+		`CHECKEDFIELDS` defines what to check.
+		
+		This also fills `simulationState` with results and comparisons to
+		run.
+
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		simulationState : `tuple`
+			Filled from `pytest.fixture` `simulationState`. Results and which
+			results to compare against each other are memorized here.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2275,6 +2343,18 @@ class test_simulation(BaseTestCase):
 							
 	@classmethod
 	def test_resultsLength(cls, simulationResult, subtests):
+		"""Assert length of *results* list returned by `simulateMvm`.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2309,6 +2389,18 @@ class test_simulation(BaseTestCase):
 						
 	@classmethod
 	def test_mergeeffort(cls, simulationResult, subtests):
+		"""Assert *mergeeffort* result returned by `simulateMvm`.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2425,6 +2517,18 @@ class test_simulation(BaseTestCase):
 								
 	@classmethod
 	def test_maxHistValue(cls, simulationResult, subtests):
+		"""Assert *maxhistvalues* result returned by `simulateMvm`.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2525,6 +2629,18 @@ class test_simulation(BaseTestCase):
 								
 	@classmethod
 	def test_clipLimitFixed(cls, simulationResult, subtests):
+		"""Assert *cliplimitfixeds* result returned by `simulateMvm`.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2606,6 +2722,18 @@ class test_simulation(BaseTestCase):
 						
 	@classmethod
 	def test_mergeValues(cls, simulationResult, subtests):
+		"""Assert *mergevaluess* result returned by `simulateMvm`.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2685,6 +2813,22 @@ class test_simulation(BaseTestCase):
 									
 	@classmethod
 	def test_results(cls, simulationResult, subtests):
+		"""Assert *results* result returned by `simulateMvm`.
+		
+		If possible, other fields are used to re-compute the expected
+		MVM result of statistic computations using `int` operations and no
+		special histogram stuff.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2789,6 +2933,18 @@ class test_simulation(BaseTestCase):
 									
 	@classmethod
 	def test_statisticDummy(cls, simulationResult, subtests):
+		"""Assert that *dostatistic* and *dostatisticdummy* yield same result.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2846,6 +3002,18 @@ class test_simulation(BaseTestCase):
 						
 	@classmethod
 	def test_operandStatStoc(cls, simulationResult, subtests):
+		"""Compare statistic and stochastic operands using `statStocCompare`.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2880,6 +3048,18 @@ class test_simulation(BaseTestCase):
 				
 	@classmethod
 	def test_resultsStatStoc(cls, simulationResult, subtests):
+		"""Compare statistic and stochastic MVM results using `statStocCompare`.
+		
+		Parameters
+		----------
+		simulationResult : `tuple`
+			Filled from `pytest.fixture` `simulationResult`.
+			Contains results from `simulateMvm` call for one element of
+			`GROUPS`.
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		"""
+		
 		groupsshapeshistaxesgroupnames, \
 		levels, \
 		nummacs, \
@@ -2934,13 +3114,14 @@ class test_simulation(BaseTestCase):
 		
 
 class test_unquantQuantComparisonPlot(BaseTestCase):
+	"""Test and compare unquantized and quantized results.
 	
-	#Test comparing quantized and unquantized simulation including
-	#applyCliplimitStddevAsFixedFrom
-	#equalizeQuantizedUnquantized
-	#computeSqnr
+	This checks `applyCliplimitStddevAsFixedFrom`, `equalizeQuantizedUnquantized`
+	and `computeSqnr` in *dostochastic* and *dostatistic*.
+	"""
 	
 	ASSERT_SNR_TOL = 1e-1
+	"""`float` : Assert SNR similarity with *0.1* dB precision."""
 	
 	#Groups for reference
 	refgroups=(
@@ -2990,6 +3171,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 					allowoptim=True,
 			),
 	)
+	"""`tuple` of `dict` : Template for *groups* in `simulateMvm`."""
 	
 	#Common arguments for simulateMvm
 	commonargs = dict(
@@ -3000,6 +3182,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 			randombehave="norm",
 			randomclips=(2., 2.,),
 	)
+	"""`dict` : Arguments always passed to `simulateMvm`."""
 	
 	#Whether quantization is added in final or intermediate stage.
 	#Also give some confidence relax. In general, having a cliplimit
@@ -3019,6 +3202,7 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 			#Quantize in intermediate group only
 			("intermediateonly", 100., False),
 	)
+	"""`tuple` : How to get *quantized* results by modifying *refgroups*."""
 	
 	#Remember statisticdim and name of a run und then do the same stuff
 	#statistic and stochastic. Also remember whether stochastic run
@@ -3684,8 +3868,8 @@ class test_pytestFeatures:
 	
 	#. A generator generating a ton of testcases
 	
-	in a *class* scope to do expensive computations invoked in `pytest.fixture` just
-	once and to be able to collect information across test functions."""
+	in a *class* scope to do expensive computations invoked in `pytest.fixture`
+	just once and to be able to collect information across test functions."""
 		
 	@classmethod
 	def pytest_generate_tests(cls, metafunc):
