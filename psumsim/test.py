@@ -3947,21 +3947,12 @@ class test_misc(BaseTestCase):
 		
 		This tests, that the iterative function actually converges with the
 		default arguments.
-		
 
 		Parameters
 		----------
 		levels : `int`
-			The *levels* 
-
-		Raises
-		------
-		with
-			DESCRIPTION.
-
-		Returns
-		-------
-		None.
+			The *bincount* to derive OCC for. Set with
+			`pytest.mark.parameterize`. 
 
 		"""
 		

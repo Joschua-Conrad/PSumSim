@@ -4057,7 +4057,7 @@ def optimumClippingCriterion(levels, abstol=1e-6, maxiter=100):
 	----------
 	levels : `int`
 		The number of levels in the quantizer following clipping. [OCC]_ uses
-		a bitwidth *B*.
+		a bitwidth *B*. This is a *bincount*.
 		
 	abstol : `float`, optional
 		The absolute tolerance t be achieved in the iterative computation.
