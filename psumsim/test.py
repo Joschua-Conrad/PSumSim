@@ -3388,8 +3388,8 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 				dostatisticdummy=dostatisticdummy,
 		)
 		
-		figname = f"Unquant_Quant_Comparison_{finalinterm}_{casename}"
-		fig = plt.figure(num=figname)
+		FIGURE_NAME = f"Unquant_Quant_Comparison_{finalinterm}_{casename}"
+		fig = plt.figure(num=FIGURE_NAME)
 	
 		#Unquantized experiment
 		retunquant = simulateMvm(
@@ -3516,10 +3516,23 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 		cls.concludeFigure(fig=fig)
 		
 
-		
 class test_misc(BaseTestCase):
+	"""Other, simple tests, which do not need the concepts of
+	`test_pytestFeatures`."""
+	
 	@classmethod
 	def test_statStocComparisonPlot(cls, tmp_numpy):
+		"""Compare *dostatisticdummy* and *dostochastic* results.
+		
+		No SQNR computation, just `simulateMvm`,
+		`applyCliplimitStddevAsFixedFrom` and `plotHist` are used.
+
+		Parameters
+		----------
+		tmp_numpy : `pathlib.Path`
+			Created by `tmp_numpy` `pytest.fixture`.
+
+		"""
 		
 		#Test and plot same experiment, but once stochastic and once statistic.
 		#Just check that it does not crash.
@@ -3527,7 +3540,7 @@ class test_misc(BaseTestCase):
 		#Contextual import, because this one takes long
 		from matplotlib import pyplot as plt
 		
-		commongroups=(
+		COMMON_GROUPS=(
 				dict(
 						reduceaxes=(MAC_AXIS,),
 						chunksizes=(8,),
@@ -3590,9 +3603,9 @@ class test_misc(BaseTestCase):
 
 		)
 		
-		figname = "Stat_Stoc_Comparison"
+		FIGURE_NAME = "Stat_Stoc_Comparison"
 		
-		fig = plt.figure(num=figname)
+		fig = plt.figure(num=FIGURE_NAME)
 		
 		axes = fig.subplots(nrows=2, sharex=True)
 		
@@ -3600,14 +3613,14 @@ class test_misc(BaseTestCase):
 		retstochastic = simulateMvm(
 				statisticdim=None,
 				dostatisticdummy=False,
-				groups=commongroups,
+				groups=COMMON_GROUPS,
 				**COMMON_ARGS,
 		)
 		
 		#Create new group, where cliplimitfixed is set from stochastic experiment,
 		#to have the two comparable.
 		cliplimitfixedgroups = applyCliplimitStddevAsFixedFrom(
-				groups=commongroups,
+				groups=COMMON_GROUPS,
 				fromreturn=retstochastic,
 				onlyatindices=None,
 		)
@@ -3663,6 +3676,18 @@ class test_misc(BaseTestCase):
 	
 	@classmethod
 	def test_runAllExperiments(cls, tmp_json):
+		"""Test `runAllExperiments`.
+		
+		Just checks, that sharding or different number of processes does
+		not influence the result. It is also checked, that already existing
+		results are correctly read.
+
+		Parameters
+		----------
+		tmp_json : `pathlib.Path`
+			Created by `tmp_json` `pytest.fixture`.
+
+		"""
 		
 		#Results created in two blocks
 		jsonpathscliced = (tmp_json / "psumsim_result_test_sliced.json")
@@ -3754,9 +3779,31 @@ class test_misc(BaseTestCase):
 		jsonfp.close()
 		
 	@classmethod
-	@pytest.mark.parametrize("makenone", (True, False))
-	def test_runDescription(cls, makenone):
-		if not makenone:
+	@pytest.mark.parametrize("skipthisruncase", (True, False))
+	def test_runDescription(cls, skipthisruncase):
+		"""Test `RunDescription`
+		
+		Especially checks
+		
+		- that *sqnrreference* and *skipthisrun* are set correctly.
+		
+		- that *createdummy* works.
+		
+		- that the objects can be used as *key* in `dict` (see `hash`)
+		
+		- that the objects can be used with `pickle`
+		
+		- that the objects can be converted to/from strings
+		
+
+		Parameters
+		----------
+		skipthisruncase : `bool`
+			If set, the created `RunDescription` has *skipthisrun* set.
+			Set by `pytest.mark.parameterize`.
+
+		"""
+		if not skipthisruncase:
 			rundesc = RunDescription(
 					nummacs=4,
 					chunksize=3,
@@ -3797,13 +3844,13 @@ class test_misc(BaseTestCase):
 			)
 			
 		#Assert the skip flag
-		assert makenone == rundesc.skipthisrun, "Test run description skips"
+		assert skipthisruncase == rundesc.skipthisrun, "Test run description skips"
 		
 		#Turn to str. This will disregard dummy info
 		rundescstr = rundesc.toStr()
 		
 		#This will create a dummy without reference info
-		rundescdummy = rundesc.copy(allowskip=makenone, createdummy=True)
+		rundescdummy = rundesc.copy(allowskip=skipthisruncase, createdummy=True)
 		
 		assert rundescdummy.sqnrreference is \
 				None, \
@@ -3812,7 +3859,7 @@ class test_misc(BaseTestCase):
 		#The None case has no intermediate or final quant. It hence
 		#has no reference. We can there assert that the dummy changes
 		#nothing.
-		if makenone:
+		if skipthisruncase:
 			assert rundesc == \
 					rundescdummy, \
 					"THe dummy shold not change anything here."
@@ -3826,7 +3873,7 @@ class test_misc(BaseTestCase):
 		#Go back, this will re-derive dummy info
 		rundescrederived = RunDescription.fromStr(
 				thestr=rundescstr,
-				allowskip=makenone,
+				allowskip=skipthisruncase,
 				createdummy=False,
 		)
 		
@@ -3847,6 +3894,16 @@ class test_misc(BaseTestCase):
 	
 	@classmethod
 	def test_stimulusPlot(cls, tmp_numpy):
+		"""Plot and store some exemplary stimulus.
+		
+		This tests `generateSimulationOperands` and `plotHist`.
+
+		Parameters
+		----------
+		tmp_numpy : `pathlib.Path`
+			Created by `tmp_numpy` `pytest.fixture`.
+
+		"""
 		
 		toexport = dict()
 		
@@ -3886,6 +3943,28 @@ class test_misc(BaseTestCase):
 	@classmethod
 	@pytest.mark.parametrize("levels", (1, 3, 7, 15, 31, 63, 64, 127,))
 	def test_optimumClippingCriterion(cls, levels):
+		"""Test `optimumClippingCriterion`.
+		
+		This tests, that the iterative function actually converges with the
+		default arguments.
+		
+
+		Parameters
+		----------
+		levels : `int`
+			The *levels* 
+
+		Raises
+		------
+		with
+			DESCRIPTION.
+
+		Returns
+		-------
+		None.
+
+		"""
+		
 		#Test OCC function across bitwidths
 		
 		abstol = 1e-6
