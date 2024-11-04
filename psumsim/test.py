@@ -3116,8 +3116,14 @@ class test_simulation(BaseTestCase):
 class test_unquantQuantComparisonPlot(BaseTestCase):
 	"""Test and compare unquantized and quantized results.
 	
-	This checks `applyCliplimitStddevAsFixedFrom`, `equalizeQuantizedUnquantized`
-	and `computeSqnr` in *dostochastic* and *dostatistic*.
+	This checks `applyCliplimitStddevAsFixedFrom`, `equalizeQuantizedUnquantized`,
+	`plotHist` and `computeSqnr` in *dostochastic* and *dostatistic*.
+	
+	This asserts that an experiment as in `experiments` yields a useful
+	SQNR.
+	
+	Automatic fixture parameterization and class-scoped state
+	as in `test_pytestFeatures`.
 	"""
 	
 	ASSERT_SNR_TOL = 1e-1
@@ -3214,10 +3220,29 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 			(None, "Stochastic", False, True,),
 			(10000, "Statistic", False, False,),
 	)
+	"""`tuple` : Statistic and stochastic simulation cases."""
 
 	@classmethod
 	@pytest.fixture(scope="class")
 	def unquantQuantComparisonPlotState(cls, tmp_numpy):
+		"""Manage state across tests as in `test_pytestFeatures.sumassertion`.
+		
+		In the end asserts deviation of SNR between `STOC_STAT_CASES` and
+		stores data to *npz* file.
+		
+		Parameters
+		----------
+		tmp_numpy : `pathlib.Path`
+			Created by `tmp_numpy` `pytest.fixture`.
+
+		Yields
+		------
+		:
+			`list` and `dict` objects to be filed by the many
+			`test_unquantQuantComparisonPlot` calls created by parameterization.
+
+		"""
+		
 		snrs = dict()
 		storearrays = dict()
 		lastfinalinterm = [None]
@@ -3255,6 +3280,20 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 								
 	@classmethod
 	def pytest_generate_tests(cls, metafunc):
+		"""Parameterize testcases.
+		
+		This uses `itertools.product` to combine `FINAL_INTERM_CASES` and
+		`STOC_STAT_CASES`. Works like
+		`test_pytestFeatures.pytest_generate_tests` and
+		creates a *unquantQuantComparisonPlotCase* `pytest.fixture`.
+
+		Parameters
+		----------
+		metafunc : `pytest.Metafunc`
+			If a *unquantQuantComparisonPlotCase* fixture request is found
+			here, it is parameterized.
+
+		"""
 		if "unquantQuantComparisonPlotCase" in metafunc.fixturenames:
 			cases = itertools.product(cls.FINAL_INTERM_CASES, cls.STOC_STAT_CASES)
 			cases, ids = itertools.tee(cases)
@@ -3262,8 +3301,30 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 			metafunc.parametrize("unquantQuantComparisonPlotCase", cases, ids=ids)
 		
 	@classmethod
-	def test_unquantQuantComparisonPlot(cls, subtests, unquantQuantComparisonPlotState, unquantQuantComparisonPlotCase):
+	def test_unquantQuantComparisonPlot(
+			cls,
+			subtests,
+			unquantQuantComparisonPlotState,
+			unquantQuantComparisonPlotCase,
+		):
+		"""Assert *mergeeffort* result returned by `simulateMvm`.
 		
+		Parameters
+		----------
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		
+		unquantQuantComparisonPlotState : `tuple`
+			Filled from `pytest.fixture` `unquantQuantComparisonPlotState`.
+			Contains test state in *class* scope.
+			
+		unquantQuantComparisonPlotCase : `tuple`
+			Filled from `pytest.fixture` *unquantQuantComparisonPlotCase*
+			defined in `pytest_generate_tests`.
+			Contains the kind of quanized experiment to run and to compare
+			to unquantized result.
+
+		"""
 		
 		#Contextual import, because this one takes long
 		from matplotlib import pyplot as plt
