@@ -5,7 +5,7 @@ import scipy
 import math
 import copy
 from .array import normalizeAxes,padAxes, getValueAlongAxis, padToEqualShape, getValueFromBroadcastableIndex
-from .hist import getHistValues, bincountToHistlen, histlenToBincount, checkStatisticsArgs, packHist, unpackHist, packStatistic, getHistLenFromMaxValues
+from .hist import getHistValues, bincountToHistlen, histlenToBincount, checkStatisticsArgs, packHist, unpackHist, packStatistic, getHistLenFromMaxValues, STAT_AXIS
 
 def probabilisticAdder(
 		tosum,
@@ -3889,6 +3889,93 @@ def simulateMvm(
 		randomclips,
 		groups,
 ):
+	"""Simulate a MVM application.
+	
+	Draw operands using `generateSimulationOperands` and then consecutively
+	reduce more and more axes by summation with quantization in-between
+	using `reduceSum`.
+
+	Parameters
+	----------
+	statisticdim : `int`, `None`
+		Forwarded to `generateSimulationOperands`. See `statstoc`.
+		
+	dostatisticdummy : `bool`
+		Simulation mode. See `statstoc`.
+		
+	selfcheckindummy : `bool`
+		Forwarded to `reduceSum`, where it enables a self-check in
+		*dostatisticdummy*. See `statstoc`.
+		
+	activationlevels : `int`
+		Basically the activation bitwidth. Forwarded to
+		`generateSimulationOperands`.
+		
+	weightlevels : `int`
+		Basically the weight bitwidth. Forwarded to
+		`generateSimulationOperands`.
+		
+	nummacs : `int`
+		Number of multiplications which are summed into a single, scalar result
+		in the MVM application. Forwarded to
+		`generateSimulationOperands`.
+		
+	randombehave : `scipy.stats.rv_continuous`, `str`
+		Random process to draw operands from. Forwarded to
+		`generateSimulationOperands`.
+		
+	randomclips : `float`
+		Max/min bin magnitude for default gaussian random behaviors.
+		Forwarded to `generateSimulationOperands`.
+	groups : (`list` or `tuple`) of `dict`
+		Each entry describes a series of summations and possibly a
+		quantization/clipping step. And each entry stands for a call to
+		`reduceSum`. So each `dict` contains keyword arguments to
+		`reduceSum`, not including:
+			
+		- *tosum*, because results of `reduceSum` are chained automatically.
+		
+		- *dostatistic*, because that is already given for all steps.
+		
+		- *dostatisticdummy*, because that is already given for all steps.
+		
+		- *selfcheckindummy*, because that is already given for all steps.
+		
+		- *stataxis*, because `STAT_AXIS` is used, which matches to
+		  `generateSimulationOperands`.
+		
+		- *maxhistvalue*, because `generateSimulationOperands` gives a
+		  good first value and following results from steps can be chained.
+		
+	Returns
+	-------
+	`dict`
+		`str` keys and `numpy.ndarray` or (`list` of `numpy.ndarray`) values.
+		
+		All results from `generateSimulationOperands` are included. On top,
+		there are more results, which are all (`list` of `numpy.ndarray`)
+		values, because there is one result per `reduceSum` call. Key
+		names are:
+			
+		results
+			Reduced histogram. See `reduceSum`.
+			
+		mergeefforts
+			ADC/Quantization cost. See `reduceSum`.
+			
+		maxhistvalues
+			Maximum bin-value magnitude of result. See `reduceSum` and
+			`maxhistvalue`.
+
+		cliplimitfixeds
+			Effectively applied cliplimit, after possibly needing to interpret
+			it in multiple of standard devaitons. See `clipping` and
+			`applyCliplimitStddevAsFixedFrom` and `quantizeClipScaleValues`.
+
+		mergevaluess
+			Effectively applied quantization. See
+			`applyCliplimitStddevAsFixedFrom` and `quantizeClipScaleValues`.
+	"""
 	
 	#We do statistic simulation, if dimension for their results is given
 	dostatistic = statisticdim is not None
@@ -3934,7 +4021,7 @@ def simulateMvm(
 				selfcheckindummy=selfcheckindummy,
 				#The stataxis needs to be synchronous to generated
 				#operands, but is not parameterizable there.
-				stataxis=0,
+				stataxis=STAT_AXIS,
 				maxhistvalue=maxhistvalue,
 				**group,
 		)
