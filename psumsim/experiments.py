@@ -1220,6 +1220,9 @@ def runAllExperiments(
 	try:
 		for rundescription, isresult, isreference in mainiter:
 			
+			#For adding runname to exceptions
+			thisrunkeystr = rundescription.toStr()
+			
 			#If we are not quiet and the fp is given, print progress to file.
 			submittingrun += 1
 			if (not runquiet) and (progressfp is not None):
@@ -1252,7 +1255,6 @@ def runAllExperiments(
 			#just to have it as a reference and actually never need its result.
 			#This breaks the dependency of needing always evne the first reference.
 			if (rundescription is not None) and (rundescription.sqnrreference is not None) and isresult:
-				thisrunkeystr = rundescription.toStr()
 				thisrefkeystr = rundescription.sqnrreference.toStr()
 				#If the reference would be skipped, it cannot exist. Check that
 				#here.
@@ -1304,7 +1306,16 @@ def runAllExperiments(
 				if not skipworkerpool:
 					asyncresult = workerpool.apply_async(func=singleRunWorker, kwds=workerargs)
 				else:
-					asyncresult = singleRunWorker(**workerargs)
+					#WHen calling this directly, errors are raised here and
+					#not when calling get() on the async result. Add runname
+					#to exception here.
+					try:
+						asyncresult = singleRunWorker(**workerargs)
+					except Exception as ex:
+						raise ex from RuntimeError(
+								f"Run {thisrunkeystr} failed.",
+								thisrunkeystr,
+						)
 				
 				asyncresults[runkey] = (asyncresult, isresult, isreference)
 			
