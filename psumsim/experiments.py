@@ -1221,7 +1221,8 @@ def runAllExperiments(
 		for rundescription, isresult, isreference in mainiter:
 			
 			#For adding runname to exceptions
-			thisrunkeystr = rundescription.toStr()
+			if rundescription is not None:
+				thisrunkeystr = rundescription.toStr()
 			
 			#If we are not quiet and the fp is given, print progress to file.
 			submittingrun += 1
