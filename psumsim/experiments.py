@@ -1186,6 +1186,8 @@ def runAllExperiments(
 	if (not runquiet) and (progressfp is None):
 		progbar = progressbar.ProgressBar(
 				max_value=runcount,
+				#Makes print with progabr look ok
+				redirect_stdout=True,
 		)
 	else:
 		progbar = None
@@ -1365,7 +1367,9 @@ def runAllExperiments(
 						infostr = "Joining all run workers\n"
 					else:
 						if not progresstofile:
-							progbar.increment()
+							#Update progabr with force, otherwise the progbar
+							#updates from last burst are visible only
+							progbar.increment(force=True)
 						else:
 							runkeystr = rundescription.toStr()
 							infostr = f"Submitting run {submittingrun}/{runcount}: {runkeystr}\n"
