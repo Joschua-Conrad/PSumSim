@@ -3709,6 +3709,7 @@ class test_misc(BaseTestCase):
 				processes=None,
 				runkeys=None,
 				progressfp=None,
+				aggressive=False,
 		)
 		
 		#Create some results from scratch
@@ -3733,12 +3734,14 @@ class test_misc(BaseTestCase):
 		)
 		jsonfp.close()
 		
-		#Create results in one big chunk. Try using progbar here.
+		#Create results in one big chunk. Try using progbar and aggressive
+		#running here.
 		jsonfp = jsonpathfull.open("w")
 		runAllExperiments(
 				**{
 						**COMMON_ARGS,
 						"runquiet" : False,
+						"aggressive" : True,
 				},
 				jsonfp=jsonfp,
 				iterbegin=None,
@@ -3770,6 +3773,8 @@ class test_misc(BaseTestCase):
 				runquiet=False,
 				#A single job skips multiprocessing
 				processes=1,
+				#No aggressive, as that has no influence with single worker
+				aggressive = False,
 				#Specify exact experiments to run
 				runkeys=specificruns,
 				#Write progress file
