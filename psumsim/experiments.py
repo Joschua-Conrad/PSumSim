@@ -1175,12 +1175,13 @@ def runAllExperiments(
 	#Exhaust one iterator for counting
 	runcount = sum((1 for i in countiter))
 	
-	#If we are not quiet, wrap iterator in progbar after updating count
+	#If we are not quiet, prepare progbar
 	if (not runquiet) and (progressfp is None):
-		mainiter = progressbar.progressbar(
-				mainiter,
+		progbar = progressbar.ProgressBar(
 				max_value=runcount,
 		)
+	else:
+		progbar = None
 		
 	#Append one final element, which is None and collects all results
 	mainiter = itertools.chain(mainiter, ((None, False, False,),))
@@ -1381,8 +1382,11 @@ def runAllExperiments(
 					)
 					
 			#Pop runkeys from async results. They have been processed.
+			#Mark the results also as completed in progbar.
 			for thisrunkey in collected:
 				asyncresults.pop(thisrunkey)
+				if progbar is not None:
+					progbar.increment()
 	finally:
 		#Cleanup workers
 		if not skipworkerpool:
