@@ -1007,6 +1007,7 @@ def runAllExperiments(
 			iterend,
 			runkeys,
 			processes,
+			aggressive,
 			progressfp,
 	):
 	"""Run all experiments from `runIter`.
@@ -1066,6 +1067,11 @@ def runAllExperiments(
 		experiments to finish. `None` lets `multiprocessing.pool.Pool`
 		find a good value, which is probably the number of CPUs.
 		Negative values or *0* are like `None`.
+		
+	aggressive : `bool`
+		If set, remember more sqnr references. This allows to keep more workers
+		busy at the cost for a larger memory footprint. If there is only a
+		single process, this switch has no effect.
 		
 	progressfp : `io.TextIOBase`, `None`
 		If given, progress information is written to this stream instead of
@@ -1164,9 +1170,10 @@ def runAllExperiments(
 	#we need for the result or reference.
 	#Prepare multiple iterators for counting and for main operation.
 	#Keep information if a returned run is for result or reference.
+	#Add flag which can be set once a run has been submitted
 	alliters = list()
 	for iteridx in range(2):
-		newiter = ((i, (i in wantresults), (i in needreferences)) for i in runIter())
+		newiter = ([i, (i in wantresults), (i in needreferences), False] for i in runIter())
 		newiter = (i for i in newiter if (i[1] or i[2]))
 		alliters.append(newiter)
 		
@@ -1183,7 +1190,7 @@ def runAllExperiments(
 		)
 		
 	#Append one final element, which is None and collects all results
-	mainiter = itertools.chain(mainiter, ((None, False, False,),))
+	mainiter = itertools.chain(mainiter, ([None, False, False, False],))
 		
 	sqnrreferences = dict()
 	#If we detect a change in some of they keys of a simulation description,
@@ -1206,7 +1213,7 @@ def runAllExperiments(
 	asyncresults = dict()
 	
 	#Maybe have to count number of done runs here
-	submittingrun = 0
+	submittingrun = 1
 	
 	#Whether we skip the pool for debugging. E.g. if there is only asingle process
 	skipworkerpool = (processes == 1)
@@ -1214,175 +1221,220 @@ def runAllExperiments(
 	#Will run experiments in parallel in a worker pool
 	if not skipworkerpool:
 		workerpool = multiprocessing.Pool(processes=processes)
+		
+	#There are no aggressive runs with only a single worker. A single worker
+	#will perform run after run.
+	aggressive = aggressive and (not skipworkerpool)
+		
+	#In aggressive run, we will iterate multiple times over mainiter and always
+	#submit all runs we can find. But therefore, we also need need to store
+	#all iter elemnts to iterate multiple times.
+	if aggressive:
+		mainiter = tuple(mainiter)
 	
 	#Wrap all experiments in a finally, such that everything that worked
 	#is written to disk
 	try:
-		for rundescription, isresult, isreference in mainiter:
-			
-			#For adding runname to exceptions
-			if rundescription is not None:
-				thisrunkeystr = rundescription.toStr()
-			
-			#If we are not quiet and the fp is given, print progress to file.
-			submittingrun += 1
-			if (not runquiet) and (progressfp is not None):
-				if rundescription is None:
-					infostr = "Joining all run workers\n"
-				else:
-					runkeystr = rundescription.toStr()
-					infostr = f"Submitting run {submittingrun}/{runcount}: {runkeystr}\n"
-				progressfp.write(infostr)
-				#Flush, otherwise the progress display gets stuck in some buffer
-				progressfp.flush()
-			
-			#Forget references if possible to save memory.
-			#All workers which still run and need the references already
-			#received copies via multiprocessing system.
-			#The runs which are processes at the moment will not create
-			#references, because if they would, we would not be allowed to
-			#clear references here and we would have waited to create
-			#more processes due to missing reference.
-			#rundescription can be None in last iteration, which collects all results
-			if (lastrundescription is not None) and (rundescription is not None):
-				for k in forgetrefkeys:
-					if getattr(rundescription, k) != getattr(lastrundescription, k):
-						sqnrreferences.clear()
-						break
-					
-			lastrundescription = rundescription
-			
-			#Get according reference. But not if we right now create a result
-			#just to have it as a reference and actually never need its result.
-			#This breaks the dependency of needing always evne the first reference.
-			if (rundescription is not None) and (rundescription.sqnrreference is not None) and isresult:
-				thisrefkeystr = rundescription.sqnrreference.toStr()
-				#If the reference would be skipped, it cannot exist. Check that
-				#here.
-				if rundescription.sqnrreference.skipthisrun:
-					raise ValueError(
-							f"Reference {thisrefkeystr} for run {thisrunkeystr} "
-							f"is a dummy.",
-							thisrefkeystr,
-							thisrunkeystr,
-					)
-				#If the reference is missing, we have to wait for getting
-				#the result. We leave the completed run inside the list
-				#of runs, as results are remembered below.
-				if rundescription.sqnrreference not in sqnrreferences:
-					asyncrefresult, _, _ = asyncresults[rundescription.sqnrreference]
-					#This call blocks until the worked got the next result.
-					#Skip it if we skipped all this worker stuff
-					try:
-						if skipworkerpool:
-							sqnrreference = asyncrefresult
-						else:
-							sqnrreference = asyncrefresult.get()
-					except Exception as ex:
-						raise ex from RuntimeError(
-								f"Getting reference result {thisrefkeystr} for run "
-								f"{thisrunkeystr} failed.",
+		#For aggressive runs, we have to iterate over mainiter many times
+		while True:
+			#Use this to remember whether any iter element submitted any run
+			anysubmitted = False
+			for thismain in mainiter:
+				
+				rundescription, isresult, isreference, runsubmitted = thismain
+				
+				#Continue, if this run has been submitted already
+				if runsubmitted:
+					continue
+				
+				#Continue, if we are in aggressive setup and try to find all runs
+				#whose reference already exists and this one does not have
+				#its reference ready yet
+				if (rundescription is not None) and (not ((not aggressive) or (rundescription.sqnrreference is None) or (rundescription.sqnrreference in sqnrreferences))):
+					continue
+				
+				#For adding runname to exceptions
+				if rundescription is not None:
+					thisrunkeystr = rundescription.toStr()
+				
+				#Forget references if possible to save memory.
+				#All workers which still run and need the references already
+				#received copies via multiprocessing system.
+				#The runs which are processes at the moment will not create
+				#references, because if they would, we would not be allowed to
+				#clear references here and we would have waited to create
+				#more processes due to missing reference.
+				#rundescription can be None in last iteration, which collects all results
+				#aggressive simulations keep all references to be able to submit
+				#more workers at once.
+				if (not aggressive) and (lastrundescription is not None) and (rundescription is not None):
+					for k in forgetrefkeys:
+						if getattr(rundescription, k) != getattr(lastrundescription, k):
+							sqnrreferences.clear()
+							break
+						
+				lastrundescription = rundescription
+				
+				#Get according reference. But not if we right now create a result
+				#just to have it as a reference and actually never need its result.
+				#This breaks the dependency of needing always evne the first reference.
+				if (rundescription is not None) and (rundescription.sqnrreference is not None) and isresult:
+					thisrefkeystr = rundescription.sqnrreference.toStr()
+					#If the reference would be skipped, it cannot exist. Check that
+					#here.
+					if rundescription.sqnrreference.skipthisrun:
+						raise ValueError(
+								f"Reference {thisrefkeystr} for run {thisrunkeystr} "
+								f"is a dummy.",
 								thisrefkeystr,
 								thisrunkeystr,
 						)
-					sqnrreferences[rundescription.sqnrreference] = sqnrreference
-				#Otherwise just get stored reference
+					#If the reference is missing, we have to wait for getting
+					#the result. We leave the completed run inside the list
+					#of runs, as results are remembered below.
+					#aggressive runs have completed all references in a previous
+					#iteration and know that the references were completed
+					#already. Same for skipped workerpool, where only one worker
+					#operates at a time, so the previous one must have finished
+					#already.
+					if (not aggressive) and (not skipworkerpool) and (rundescription.sqnrreference not in sqnrreferences):
+						asyncrefresult, _, _ = asyncresults[rundescription.sqnrreference]
+						#This call blocks until the worked got the next result.
+						#Skip it if we skipped all this worker stuff
+						try:
+							sqnrreference = asyncrefresult.get()
+						except Exception as ex:
+							raise ex from RuntimeError(
+									f"Getting reference result {thisrefkeystr} for run "
+									f"{thisrunkeystr} failed.",
+									thisrefkeystr,
+									thisrunkeystr,
+							)
+						sqnrreferences[rundescription.sqnrreference] = sqnrreference
+					#Otherwise just get stored reference
+					else:
+						sqnrreference = sqnrreferences[rundescription.sqnrreference]
 				else:
-					sqnrreference = sqnrreferences[rundescription.sqnrreference]
-			else:
-				sqnrreference = None
+					sqnrreference = None
+					
+				#Apply new job for workerpool, if rundescription is not None,
+				#which it is in a lasat iteration which gathers all results.
+				if (rundescription is not None):
+					#Create minimum key without sqnrreference name and fields which can
+					#be re-created from the rest. Dummies are used as keys.
+					runkey = rundescription.copy(allowskip=False, createdummy=True)
+					
+					#Actual run inside the pool. Apply without of pool if needed
+					workerargs = dict(
+							rundescription=rundescription,
+							sqnrreferencereturn=sqnrreference,
+					)
+					if not skipworkerpool:
+						asyncresult = workerpool.apply_async(func=singleRunWorker, kwds=workerargs)
+					else:
+						#WHen calling this directly, errors are raised here and
+						#not when calling get() on the async result. Add runname
+						#to exception here.
+						try:
+							asyncresult = singleRunWorker(**workerargs)
+						except Exception as ex:
+							raise ex from RuntimeError(
+									f"Run {thisrunkeystr} failed.",
+									thisrunkeystr,
+							)
+					
+					asyncresults[runkey] = (asyncresult, isresult, isreference)
+					
+					#Remember that while iterating over mainiter we submitted
+					#something and that this particular run has been submitted.
+					anysubmitted = True
+					thismain[-1] = True
+					
+				#If we are not quiet and the fp is given, print progress to file.
+				#Progress file refers to submited, not joined runs. Except
+				#for last iteration where rundescription is None, there we
+				#onyl join workers.
+				if (not runquiet) and (progressfp is not None):
+					if rundescription is None:
+						infostr = "Joining all run workers\n"
+					else:
+						runkeystr = rundescription.toStr()
+						infostr = f"Submitting run {submittingrun}/{runcount}: {runkeystr}\n"
+						submittingrun += 1
+					progressfp.write(infostr)
+					#Flush, otherwise the progress display gets stuck in some buffer
+					progressfp.flush()
 				
-			#Apply new job for workerpool, if rundescription is not None,
-			#which it is in a lasat iteration which gathers all results.
-			if (rundescription is not None):
-				#Create minimum key without sqnrreference name and fields which can
-				#be re-created from the rest. Dummies are used as keys.
-				runkey = rundescription.copy(allowskip=False, createdummy=True)
+				#Go thru all asyncresults and collect the ones which are ready
+				collected = list()
+				for thisrunkey, asyncresultissmth in asyncresults.items():
+					thisasyncresult, thisisresult, thisisreference = asyncresultissmth
+					
+					#Leave results which are still being processed alone.
+					#Only when rundescription is None, we are in last run
+					#and have to collect all results.
+					#If we skipped the workers, results are ready, as the runs
+					#were submitted synchronously
+					if (not skipworkerpool) and (not thisasyncresult.ready()):
+						if (rundescription is not None):
+							continue
+						else:
+							#If we are supposed to collect all results,
+							#wait for them.
+							thisasyncresult.wait()
+					
+					#Create string from rundescription to be able to
+					#add JSON dict entries. thisrunkey is a dummy, but
+					#that makes no difference for string creation
+					thisrunkeystr = thisrunkey.toStr()
 				
-				#Actual run inside the pool. Apply without of pool if needed
-				workerargs = dict(
-						rundescription=rundescription,
-						sqnrreferencereturn=sqnrreference,
-				)
-				if not skipworkerpool:
-					asyncresult = workerpool.apply_async(func=singleRunWorker, kwds=workerargs)
-				else:
-					#WHen calling this directly, errors are raised here and
-					#not when calling get() on the async result. Add runname
-					#to exception here.
+					#Get the result. Is easy if no worker was used
 					try:
-						asyncresult = singleRunWorker(**workerargs)
+						if skipworkerpool:
+							thisresult = thisasyncresult
+						else:
+							thisresult = thisasyncresult.get()
 					except Exception as ex:
 						raise ex from RuntimeError(
 								f"Run {thisrunkeystr} failed.",
 								thisrunkeystr,
 						)
-				
-				asyncresults[runkey] = (asyncresult, isresult, isreference)
-			
-			#Go thru all asyncresults and collect the ones which are ready
-			collected = list()
-			for thisrunkey, asyncresultissmth in asyncresults.items():
-				thisasyncresult, thisisresult, thisisreference = asyncresultissmth
-				
-				#Leave results which are still being processed alone.
-				#Only when rundescription is None, we are in last run
-				#and have to collect all results.
-				#If we skipped the workers, results are ready, as the runs
-				#were submitted synchronously
-				if (not skipworkerpool) and (not thisasyncresult.ready()):
-					if (rundescription is not None):
-						continue
-					else:
-						#If we are supposed to collect all results,
-						#wait for them.
-						thisasyncresult.wait()
-				
-				#Create string from rundescription to be able to
-				#add JSON dict entries. thisrunkey is a dummy, but
-				#that makes no difference for string creation
-				thisrunkeystr = thisrunkey.toStr()
-			
-				#Get the result. Is easy if no worker was used
-				try:
-					if skipworkerpool:
-						thisresult = thisasyncresult
-					else:
-						thisresult = thisasyncresult.get()
-				except Exception as ex:
-					raise ex from RuntimeError(
-							f"Run {thisrunkeystr} failed.",
-							thisrunkeystr,
-					)
-				
-				#Remember to remove this element later
-				collected.append(thisrunkey)
-			
-				#Append reference
-				if thisisreference:
-					sqnrreferences[thisrunkey] = thisresult
 					
-				#Append results. Only what we need. Omit things, which are only needed
-				#to use results as a reference. Use str key, as using a tuple
-				#as key does not work with JSON
-				if thisisresult:
-					storeresults[thisrunkeystr] = dict(
-							#Needed for estimating quantization effort and
-							#what it gives
-							snr=thisresult["snr"],
-							totalmergeeffort=thisresult["totalmergeeffort"],
-							#Handy for estimating where on the dynamicrange the
-							#ADC values are derived
-							cliplimitfixeds=thisresult["cliplimitfixeds"],
-							#Number of ADC levels. Use the possibly shortter
-							#list representing only two runs in an unchunked
-							#experiment.
-							fewmergevaluess=thisresult["fewmergevaluess"],
-					)
+					#Remember to remove this element later
+					collected.append(thisrunkey)
+				
+					#Append reference
+					if thisisreference:
+						sqnrreferences[thisrunkey] = thisresult
+						
+					#Append results. Only what we need. Omit things, which are only needed
+					#to use results as a reference. Use str key, as using a tuple
+					#as key does not work with JSON
+					if thisisresult:
+						storeresults[thisrunkeystr] = dict(
+								#Needed for estimating quantization effort and
+								#what it gives
+								snr=thisresult["snr"],
+								totalmergeeffort=thisresult["totalmergeeffort"],
+								#Handy for estimating where on the dynamicrange the
+								#ADC values are derived
+								cliplimitfixeds=thisresult["cliplimitfixeds"],
+								#Number of ADC levels. Use the possibly shortter
+								#list representing only two runs in an unchunked
+								#experiment.
+								fewmergevaluess=thisresult["fewmergevaluess"],
+						)
+						
+				#Pop runkeys from async results. They have been processed.
+				for thisrunkey in collected:
+					asyncresults.pop(thisrunkey)
 					
-			#Pop runkeys from async results. They have been processed.
-			for thisrunkey in collected:
-				asyncresults.pop(thisrunkey)
+			#In aggressive runs, we iterate over mainiter only once and are done now.
+			#Also break, if we are in aggressive mode, but did not submit anything
+			#in this iteration
+			if (not aggressive) or (not anysubmitted):
+				break
+			
 	finally:
 		#Cleanup workers
 		if not skipworkerpool:
@@ -1460,6 +1512,13 @@ same process (nice for debugging)."""
 			help=thehelp,
 	)
 	
+	thehelp="""If set, keep more jobs busy at the cost of larger memory foorptint."""
+	parser.add_argument(
+			"-a", "--aggressive",
+			action="store_true",
+			help=thehelp,
+	)
+	
 	thehelp="""Where in the set of all experiments to start. If you pass 0.1,
 the first tenth of all experiments will be discarded. The default includes
 all runs. If *runkeys* is passed, this is ignored."""
@@ -1484,7 +1543,7 @@ will be ignored."""
 	
 	thehelp="""Name of the JSON file to write to. If that file already exists,
 it is open for read and already existing results are not re-created.
-A pattern like *psumsimresults_{begin:f}_{end:f}.json* (the default) is allowed
+A pattern like *psumsimresults_{begin}_{end}.json* (the default) is allowed
 and includes begin and end in the filename."""
 	parser.add_argument(
 			"-f", "--resultsfile",
@@ -1601,6 +1660,7 @@ def main(args=None):
 				 iterend=argvalues.end,
 				 runkeys=runkeys,
 				 processes=argvalues.jobs,
+				 aggressive=argvalues.aggressive,
 				 progressfp=progressfilefp,
 		 )
 	finally:
