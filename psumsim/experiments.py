@@ -1232,6 +1232,10 @@ def runAllExperiments(
 	#all iter elemnts to iterate multiple times.
 	if aggressive:
 		mainiter = tuple(mainiter)
+		
+	#Start progab time measurement
+	if progbar is not None:
+		progbar.start()
 	
 	#Wrap all experiments in a finally, such that everything that worked
 	#is written to disk
@@ -1355,16 +1359,21 @@ def runAllExperiments(
 				#Progress file refers to submited, not joined runs. Except
 				#for last iteration where rundescription is None, there we
 				#onyl join workers.
-				if (not runquiet) and (progressfp is not None):
+				progresstofile = progressfp is not None
+				if not runquiet:
 					if rundescription is None:
 						infostr = "Joining all run workers\n"
 					else:
-						runkeystr = rundescription.toStr()
-						infostr = f"Submitting run {submittingrun}/{runcount}: {runkeystr}\n"
+						if not progresstofile:
+							progbar.increment()
+						else:
+							runkeystr = rundescription.toStr()
+							infostr = f"Submitting run {submittingrun}/{runcount}: {runkeystr}\n"
 						submittingrun += 1
-					progressfp.write(infostr)
-					#Flush, otherwise the progress display gets stuck in some buffer
-					progressfp.flush()
+					if progresstofile:
+						progressfp.write(infostr)
+						#Flush, otherwise the progress display gets stuck in some buffer
+						progressfp.flush()
 				
 				#Go thru all asyncresults and collect the ones which are ready
 				collected = list()
@@ -1427,11 +1436,8 @@ def runAllExperiments(
 						)
 						
 				#Pop runkeys from async results. They have been processed.
-				#Mark the results also as completed in progbar.
 				for thisrunkey in collected:
 					asyncresults.pop(thisrunkey)
-					if progbar is not None:
-						progbar.increment()
 					
 			#In aggressive runs, we iterate over mainiter only once and are done now.
 			#Also break, if we are in aggressive mode, but did not submit anything
@@ -1456,6 +1462,9 @@ def runAllExperiments(
 					allow_nan=True,
 					indent="\t",
 			)
+		#FInalize progbar
+		if progbar is not None:
+			progbar.finish(dirty=True)
 		
 		
 	#Resotre class attributes if they were changed
