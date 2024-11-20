@@ -1182,15 +1182,32 @@ def runAllExperiments(
 	#Exhaust one iterator for counting
 	runcount = sum((1 for i in countiter))
 	
-	#If we are not quiet, prepare progbar
+	#If we are not quiet, prepare progbars. One for showing started jobs, one
+	#for finished.
 	if (not runquiet) and (progressfp is None):
-		progbar = progressbar.ProgressBar(
+		submittedbar = progressbar.ProgressBar(
 				max_value=runcount,
 				#Makes print with progabr look ok
 				redirect_stdout=True,
+				#Print finished bar below submitted
+				line_offset = 1,
+				#Prefix text before bar
+				prefix="Submitted: ",
+		)
+		finishedbar = progressbar.ProgressBar(
+				max_value=runcount,
+				#Makes print with progabr look ok
+				redirect_stdout=True,
+				prefix="Collected: ",
 		)
 	else:
-		progbar = None
+		submittedbar = None
+		finishedbar = None
+		
+	#The progressfp has higher priority than progress bar, but is also skipped
+	#if the run is quiet
+	if runquiet:
+		progressfp = None
 		
 	#Append one final element, which is None and collects all results
 	mainiter = itertools.chain(mainiter, ([None, False, False, False],))
@@ -1215,8 +1232,9 @@ def runAllExperiments(
 	#Will store async results here. The key is the rundescription dummy
 	asyncresults = dict()
 	
-	#Maybe have to count number of done runs here
+	#Count submitted and collected runs here
 	submittingrun = 1
+	collectingrun = 1
 	
 	#Whether we skip the pool for debugging. E.g. if there is only asingle process
 	skipworkerpool = (processes == 1)
@@ -1236,8 +1254,10 @@ def runAllExperiments(
 		mainiter = tuple(mainiter)
 		
 	#Start progab time measurement
-	if progbar is not None:
-		progbar.start()
+	if submittedbar is not None:
+		submittedbar.start()
+	if finishedbar is not None:
+		finishedbar.start()
 	
 	#Wrap all experiments in a finally, such that everything that worked
 	#is written to disk
@@ -1324,6 +1344,22 @@ def runAllExperiments(
 				else:
 					sqnrreference = None
 					
+				#Print info about submitted run to progress file or bar.
+				#Do so before possibly starting a run with skipworkerpool
+				#runquiet is regarded above, where it sets progressbar and
+				#progress file objects to None
+				if (rundescription is not None):
+					if submittedbar is not None:
+						#Update progabr with force, otherwise the progbar
+						#updates from last burst are visible only
+						submittedbar.increment(force=True)
+					if progressfp is not None:
+						infostr = f"Submitting run {submittingrun}/{runcount}: {thisrunkeystr}\n"
+						progressfp.write(infostr)
+						#Flush, otherwise the progress display gets stuck in some buffer
+						progressfp.flush()
+					submittingrun += 1
+					
 				#Apply new job for workerpool, if rundescription is not None,
 				#which it is in a lasat iteration which gathers all results.
 				if (rundescription is not None):
@@ -1356,28 +1392,6 @@ def runAllExperiments(
 					#something and that this particular run has been submitted.
 					anysubmitted = True
 					thismain[-1] = True
-					
-				#If we are not quiet and the fp is given, print progress to file.
-				#Progress file refers to submited, not joined runs. Except
-				#for last iteration where rundescription is None, there we
-				#onyl join workers.
-				progresstofile = progressfp is not None
-				if not runquiet:
-					if rundescription is None:
-						infostr = "Joining all run workers\n"
-					else:
-						if not progresstofile:
-							#Update progabr with force, otherwise the progbar
-							#updates from last burst are visible only
-							progbar.increment(force=True)
-						else:
-							runkeystr = rundescription.toStr()
-							infostr = f"Submitting run {submittingrun}/{runcount}: {runkeystr}\n"
-						submittingrun += 1
-					if progresstofile:
-						progressfp.write(infostr)
-						#Flush, otherwise the progress display gets stuck in some buffer
-						progressfp.flush()
 				
 				#Go thru all asyncresults and collect the ones which are ready
 				collected = list()
@@ -1413,6 +1427,18 @@ def runAllExperiments(
 								f"Run {thisrunkeystr} failed.",
 								thisrunkeystr,
 						)
+						
+					#Update proressbar of completed runs
+					if finishedbar is not None:
+						#Update progabr with force, otherwise the progbar
+						#updates from last burst are visible only
+						finishedbar.increment(force=True)
+					if progressfp is not None:
+						infostr = f"Collecting run {collectingrun}/{runcount}: {thisrunkeystr}\n"
+						progressfp.write(infostr)
+						#Flush, otherwise the progress display gets stuck in some buffer
+						progressfp.flush()
+					collectingrun += 1
 					
 					#Remember to remove this element later
 					collected.append(thisrunkey)
@@ -1466,9 +1492,11 @@ def runAllExperiments(
 					allow_nan=True,
 					indent="\t",
 			)
-		#FInalize progbar
-		if progbar is not None:
-			progbar.finish(dirty=True)
+		#Finalize progbar
+		if submittedbar is not None:
+			submittedbar.finish(dirty=True)
+		if finishedbar is not None:
+			finishedbar.finish(dirty=True)
 		
 		
 	#Resotre class attributes if they were changed
