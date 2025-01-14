@@ -3967,7 +3967,7 @@ class test_misc(BaseTestCase):
 		
 		toexport = dict()
 		
-		histlens = (4095, 2047, 1023, 511, 255, 127, 63, 31, 16, 7, 3)
+		histlens = (8191, 4095, 2047, 1023, 511, 255, 127, 63, 31, 16, 7, 3, 1)
 		ref = None
 		
 		snrs = dict()
