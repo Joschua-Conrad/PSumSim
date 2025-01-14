@@ -14,6 +14,13 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 	*loc* and *scale* still works, even for creating a *frozen distribution*.
 	
 	Defined functions return same dtype as given with input.
+	
+	.. note::
+		Do not set *a* or *b* (bounds of support of distribution). The methods
+		defined here do not accept arguments for that. The standard sinusoidal
+		distribution has a support on :math:`[-1;1]` and *scale* and *loc* can
+		change that. Buf `_cdf` of very small numbers is just *0* and not
+		*NaN* or such.
 	"""
 	
 	def _cdf(self, x):
@@ -162,7 +169,7 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		return ret
 
 
-sinusoidal = sinusoidal_gen(loc=0., scale=1., a=-1., b=1.)
+sinusoidal = sinusoidal_gen(name="sinusoidal")
 """`sinusoidal_gen` : Default instance of number generator.
 
 `scipy.stats` does this as well. Use this as the default generator and call
