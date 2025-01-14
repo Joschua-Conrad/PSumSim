@@ -3600,7 +3600,6 @@ class test_misc(BaseTestCase):
 				nummacs=32,
 				randombehave="norm",
 				randomclips=(2., 2.,),
-
 		)
 		
 		FIGURE_NAME = "Stat_Stoc_Comparison"
@@ -3942,6 +3941,91 @@ class test_misc(BaseTestCase):
 		#Export stuff
 		np.savez(
 				file=(tmp_numpy / "psumsim_plot_data_stimulus"),
+				**toexport
+		)
+		
+	@classmethod
+	def test_sinusoidQuant(cls, tmp_numpy):
+		"""Get SNR for quantizing sinusoidal signal.
+
+		Parameters
+		----------
+		tmp_numpy : `pathlib.Path`
+			Created by `tmp_numpy` `pytest.fixture`.
+
+		"""
+		
+		
+		toexport = dict()
+		
+		sinlevels = (255, 127, 63, 31, 16, 7, 3)
+		sinref = None
+		
+		for sinlevel in sinlevels:
+			
+			if sinref is None:
+				sinrefhistlen = sinlevel
+				sinrefbincount = histlenToBincount(histlen=sinrefhistlen)
+				mergevalues = None
+				toexport["refbincount"] = np.array(sinrefbincount)
+			else:
+				mergevalues = -sinlevel
+			
+			simulated = simulateMvm(
+					statisticdim=None,
+					dostatisticdummy=False,
+					selfcheckindummy=True,
+					activationlevels=sinrefhistlen,
+					weightlevels=1,
+					nummacs=1,
+					randombehave="sinusoidal",
+					randomclips=(2., 2.,),
+					groups=(
+							dict(
+									reduceaxes=(MAC_AXIS+1,WEIGHT_AXIS+1,),
+									chunksizes=None,
+									mergevalues=mergevalues,
+									cliplimitstddev=None,
+									cliplimitfixed=None,
+									positionweights=(None, "hist"),
+									positionweightsonehot=None,
+									disablereducecarries=(False, True),
+									chunkoffsetsteps=None,
+									histaxis=ACT_AXIS+1,
+									docreatehistaxis=False,
+									mergeeffortmodel=None,
+									allowoptim=True,
+							),
+					),
+			)
+
+			if sinref is None:
+				sinref = simulated
+			else:
+				unquantized, quantized = equalizeQuantizedUnquantized(
+							retunquantized=sinref,
+							retquantized=simulated,
+							runidx=-1,
+							histaxis=HIST_AXIS,
+							stataxis=STAT_AXIS,
+							dostatistic=False,
+							dostatisticdummy=False,
+				)
+				
+				snrlog, errorprob, errorpowerlinear, errorpowersquared = computeSqnr(
+						unquantized=unquantized,
+						quantized=quantized,
+						histaxis=HIST_AXIS,
+						stataxis=STAT_AXIS,
+						bincount=sinrefbincount,
+						dostatistic=False,
+						dostatisticdummy=False,
+						errordtype="float",	
+				)
+		
+		#Export stuff
+		np.savez(
+				file=(tmp_numpy / "psumsim_plot_data_sinusoidal"),
 				**toexport
 		)
 			

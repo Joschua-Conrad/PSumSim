@@ -2899,6 +2899,7 @@ def computeSqnr(
 	unquantized : `numpy.ndarray`
 		The reference histogram with the clean signal without noise.
 		All simulation modes as described in `statstoc` are allowed.
+		
 	quantized : `numpy.ndarray`
 		The quantized histogram with quantization/clipping noise on top.
 		Must have same simulation mode and length as *unquantized*.
