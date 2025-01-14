@@ -160,3 +160,10 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		ret = np.astype(ret, copy=False, dtype=x.dtype)
 		
 		return ret
+
+
+sinusoidal = sinusoidal_gen(loc=0., scale=1., a=-1., b=1.)
+"""`sinusoidal_gen` : Default instance of number generator.
+
+`scipy.stats` does this as well. Use this as the default generator and call
+this instance (not the class) to create frozen distributions."""
