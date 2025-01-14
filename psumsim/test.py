@@ -14,7 +14,7 @@ import pickle
 
 from psumsim.array import normalizeAxes, getValueAlongAxis, padToEqualShape
 from psumsim.hist import histlenToBincount, bincountToHistlen, packHist, packStatistic, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
-from psumsim.simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized, generateSimulationOperands, applyCliplimitStddevAsFixedFrom
+from psumsim.simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized, generateSimulationOperands, applyCliplimitStddevAsFixedFrom, quantizeClipScaleValues
 from psumsim.plot import plotHist
 from psumsim.experiments import runAllExperiments, RunDescription						
 	
@@ -3946,8 +3946,18 @@ class test_misc(BaseTestCase):
 		
 	@classmethod
 	def test_sinusoidQuant(cls, tmp_numpy):
-		"""Get SNR for quantizing sinusoidal signal.
-
+		r"""Get SNR for quantizing sinusoidal signal.
+		
+		Gets sinusoidal signal at different bitwidths and computes SQNR on them.
+		Is supposed to re-produce the :math:`1.76 + 6.02n` equation. But
+		regard, that we have bincounts which are some :math:`2^{n}-1` and not
+		:math:`2^{n}`. Furthermore, we always need a reference for SQNR
+		computation and that is a quantized sinusoidal signal with large,
+		but finite bitwidth. So for large bitwidths, we do not see the exact
+		expected trend.
+		
+		The SNRs and the finite, large bincount are stored to a JSON file.
+		 
 		Parameters
 		----------
 		tmp_numpy : `pathlib.Path`
@@ -3955,79 +3965,70 @@ class test_misc(BaseTestCase):
 
 		"""
 		
-		
 		toexport = dict()
 		
-		sinlevels = (255, 127, 63, 31, 16, 7, 3)
-		sinref = None
+		histlens = (4095, 2047, 1023, 511, 255, 127, 63, 31, 16, 7, 3)
+		ref = None
 		
-		for sinlevel in sinlevels:
+		snrs = dict()
+		
+		for histlen in histlens:
+			bincount = histlenToBincount(histlen=histlen)
 			
-			if sinref is None:
-				sinrefhistlen = sinlevel
-				sinrefbincount = histlenToBincount(histlen=sinrefhistlen)
-				mergevalues = None
-				toexport["refbincount"] = np.array(sinrefbincount)
-			else:
-				mergevalues = -sinlevel
+			if ref is None:
+				refhistlen = histlen
+				refbincount = bincount
 			
-			simulated = simulateMvm(
+			simulated = generateSimulationOperands(
 					statisticdim=None,
 					dostatisticdummy=False,
-					selfcheckindummy=True,
-					activationlevels=sinrefhistlen,
+					activationlevels=histlen,
 					weightlevels=1,
 					nummacs=1,
 					randombehave="sinusoidal",
-					randomclips=(2., 2.,),
-					groups=(
-							dict(
-									reduceaxes=(MAC_AXIS+1,WEIGHT_AXIS+1,),
-									chunksizes=None,
-									mergevalues=mergevalues,
-									cliplimitstddev=None,
-									cliplimitfixed=None,
-									positionweights=(None, "hist"),
-									positionweightsonehot=None,
-									disablereducecarries=(False, True),
-									chunkoffsetsteps=None,
-									histaxis=ACT_AXIS+1,
-									docreatehistaxis=False,
-									mergeeffortmodel=None,
-									allowoptim=True,
-							),
-					),
+					randomclips=(2., 2.),
 			)
+			
+			simulated = simulated["activations"]
+			simulated = np.squeeze(simulated, axis=1)
+			
+			
 
-			if sinref is None:
-				sinref = simulated
+			if ref is None:
+				ref = simulated
 			else:
-				unquantized, quantized = equalizeQuantizedUnquantized(
-							retunquantized=sinref,
-							retquantized=simulated,
-							runidx=-1,
-							histaxis=HIST_AXIS,
-							stataxis=STAT_AXIS,
-							dostatistic=False,
-							dostatisticdummy=False,
+				
+				rescaled, _, _, _ = quantizeClipScaleValues(
+						toprocess=simulated,
+						maxhistvalue=np.expand_dims(np.array(histlen), axis=(0, 1)),
+						mergevalues=None,
+						dostatistic=False,
+						dostatisticdummy=False,
+						cliplimitfixed=None,
+						valuescale=(float(refhistlen) / float(histlen)),
+						histaxis=HIST_AXIS,
+						scaledtype="float",
 				)
 				
-				snrlog, errorprob, errorpowerlinear, errorpowersquared = computeSqnr(
-						unquantized=unquantized,
-						quantized=quantized,
+				snr, _, _, _ = computeSqnr(
+						unquantized=ref,
+						quantized=rescaled,
 						histaxis=HIST_AXIS,
 						stataxis=STAT_AXIS,
-						bincount=sinrefbincount,
+						bincount=refbincount,
 						dostatistic=False,
 						dostatisticdummy=False,
 						errordtype="float",	
 				)
+				snrs[bincount] = snr.item()
 		
 		#Export stuff
-		np.savez(
-				file=(tmp_numpy / "psumsim_plot_data_sinusoidal"),
-				**toexport
-		)
+		toexport = dict()
+		toexport["refbincount"] = refbincount
+		toexport["snrs"] = snrs
+		
+		with open((tmp_numpy / "psumsim_plot_data_snrs.json"), "wt") as fobj:
+			json.dump(toexport, fp=fobj, indent="\t")
 			
 	@classmethod
 	@pytest.mark.parametrize("levels", (1, 3, 7, 15, 31, 63, 64, 127,))
