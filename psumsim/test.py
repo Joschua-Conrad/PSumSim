@@ -3912,7 +3912,7 @@ class test_misc(BaseTestCase):
 		
 		toexport = dict()
 		
-		for randombehave in ("norm", "truncnorm", "uniform", "fullscale",):
+		for randombehave in ("norm", "truncnorm", "uniform", "fullscale", "sinusoidal"):
 			stimuli = generateSimulationOperands(
 					statisticdim=None,
 					dostatisticdummy=False,
