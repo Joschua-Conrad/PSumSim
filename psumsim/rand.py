@@ -74,7 +74,7 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		np.putmask(ret, mask=toolarge, values=1)
 		
 		#Cast dtype. If it is already the one of input value, keep without copy.
-		ret = np.astype(ret, copy=False, dtype=x.dtype)
+		ret = ret.astype(copy=False, dtype=x.dtype)
 		
 		return ret
 		
@@ -121,7 +121,7 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		np.putmask(ret, mask=constderiv, values=0)
 		
 		#Cast dtype. If it is already the one of input value, keep without copy.
-		ret = np.astype(ret, copy=False, dtype=x.dtype)
+		ret = ret.astype(copy=False, dtype=x.dtype)
 		
 		return ret
 
@@ -164,7 +164,7 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		np.putmask(ret, mask=bad, values=np.nan)
 		
 		#Cast dtype. If it is already the one of input value, keep without copy.
-		ret = np.astype(ret, copy=False, dtype=x.dtype)
+		ret = ret.astype(copy=False, dtype=x.dtype)
 		
 		return ret
 
