@@ -3713,42 +3713,26 @@ def generateSimulationOperands(
 		#Or draw probabilities for values
 		else:
 			#Values between -clip and +clip value. These are the rounded values,
-			#which sit at the center of pdf bins.
+			#which sit at the center of pdf bins. We start by computing just
+			#the lower bounds and then shift all up by half a step
+			binwidth = float(2 * randomclip) / float(bincount)
+			halfbinwidth = binwidth / 2.
 			operand = np.linspace(
 					start=-randomclip,
 					stop=randomclip,
 					num=bincount,
+					endpoint=False,
+					dtype="float",
 			)
-			#Add dimensions for hist and dummy statistics.
-			#We let the operator rise along mac axis.
-			operand = np.expand_dims(operand, axis=(0, -1))
+			np.add(operand, halfbinwidth, out=operand)
 			
 			#These are the bins we now integrate to get probability of the
 			#integer values computed above.
 			#In these bins, we integrate the pdf via cdf.
 			#The values within a bin round() to the respective value we
 			#later turn into bins.
-			#We have to ragard that max/min values
-			#would be included, but the pdf is clipped and never draws
-			#them. So these bins are in there only half.
-			
-			#We lose half teh first and half the last bin, so one bin in total.
-			#But the given range extends along positive and negative.
-			binwidth = float(2 * randomclip) / float(bincount - 1)
-			#Draw the lower and upper bounds of bins, first and last bin bounds
-			#reach over allowed range.
-			lowerbinbounds = np.linspace(
-					start=-randomclip-(binwidth/2.),
-					stop=randomclip-(binwidth/2.),
-					num=bincount,
-					dtype="float",
-			)
-			upperbinbounds = np.linspace(
-					start=-randomclip+(binwidth/2.),
-					stop=randomclip+(binwidth/2.),
-					num=bincount,
-					dtype="float",
-			)
+			lowerbinbounds = np.subtract(operand, halfbinwidth, dtype=operand.dtype)
+			upperbinbounds = np.add(operand, halfbinwidth, dtype=operand.dtype)
 			#Combine bin bounds
 			binbounds = np.stack((lowerbinbounds, upperbinbounds), axis=0)
 			#Clip disallowed values
@@ -3758,18 +3742,23 @@ def generateSimulationOperands(
 					a_max=randomclip,
 					out=binbounds,
 			)
+			
 			#Use cdf to integrate pdf in bounds. Possibly use explicit cdf.
 			if explicitcdf is None:
 				thiscdf = randombehavelookup.cdf
-				
 			else:
 				thiscdf = explicitcdf
 			probabilities = thiscdf(binbounds)
 			probabilities = probabilities[1] - probabilities[0]
+			
 			#Add power below lowest bin bound and above highest to border bins.
 			#This mimics clipping.
 			probabilities[0] += thiscdf(binbounds[0, 0])
 			probabilities[-1] += (1. - thiscdf(binbounds[1, -1]))
+			
+			#Add dimensions for hist and dummy statistics.
+			#We let the operator rise along mac axis.
+			operand = np.expand_dims(operand, axis=(0, -1))
 			
 			#Add dimension for mac and statistics. So probabilities
 			#are swept along hist axis, which is where we need them later.
