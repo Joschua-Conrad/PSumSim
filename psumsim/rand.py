@@ -54,21 +54,20 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		toolow = (x < -1)
 		toolarge = (x > 1)
 		bad = (toolow | toolarge)
+		good = ~bad
 		
-		#Will work in-place here
-		ret = x.copy()
-		#Set all digits where we won't need arcsin to 0, such that arcsin does
-		#not yield NaN anywhere. Better debugging
-		np.putmask(ret, mask=bad, values=0)
-		#Compute cdf using arcsin where needed
-		np.copyto(
-				ret,
-				(0.5 + (np.arcsin(ret) / np.pi)),
-				mask=(~bad),
-		)
+		#Compute function on best dtype numpy determines and only for digits
+		#where we need it.
+		ret = np.arcsin(x, where=good)
+		np.divide(ret, np.pi, where=good, out=ret)
+		np.add(ret, 0.5, where=good, out=ret)
+
 		#Set other digits to fixed values
 		np.putmask(ret, mask=toolow, values=0)
 		np.putmask(ret, mask=toolarge, values=1)
+		
+		#Cast dtype. If it is already the one of input value, keep without copy.
+		ret = np.astype(ret, copy=False, dtype=x.dtype)
 		
 		return ret
 		
@@ -99,23 +98,25 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 
 		"""
 		
-		
 		#Which values have a constant 0 derivative
 		constderiv = ((x < -1) | (x > 1))
+		nonconstderiv = ~constderiv
+
+		#Compute function on best dtype numpy determines and only for digits
+		#where we need it.
+		ret = np.power(x, 2, where=nonconstderiv)
+		np.subtract(1, ret, where=nonconstderiv, out=ret)
+		np.sqrt(ret, where=nonconstderiv, out=ret)
+		np.multiply(ret, np.pi, where=nonconstderiv, out=ret)
+		np.divide(1, ret, where=nonconstderiv, out=ret)
 		
-		#Will work in-place here
-		ret = x.copy()
-		#Set all digits where we won't need derivative to 0, such that we do
-		#not compute sqrt of negative numbers
-		np.putmask(ret, mask=constderiv, values=0)
-		#Compute derivative at other digits
-		np.copyto(
-				ret,
-				(1. / (np.pi * np.sqrt(1. - np.power(ret, 2.)))),
-				mask=(~constderiv),
-		)
 		#Set other digits to fixed values
 		np.putmask(ret, mask=constderiv, values=0)
+		
+		#Cast dtype. If it is already the one of input value, keep without copy.
+		ret = np.astype(ret, copy=False, dtype=x.dtype)
+		
+		return ret
 
 	def _ppf(self, x):
 		r"""Percent point function.
@@ -151,6 +152,8 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		#where we need it.
 		ret = np.subtract(x, 0.5 * np.pi, where=good)
 		np.sin(ret, out=ret, where=good)
+		
+		#Other digits have fixed NaN value
 		np.putmask(ret, mask=bad, values=np.nan)
 		
 		#Cast dtype. If it is already the one of input value, keep without copy.
