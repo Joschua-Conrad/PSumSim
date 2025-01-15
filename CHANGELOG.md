@@ -9,6 +9,10 @@ will make old configs or model files work no more.
   
 - New test {any}`test_quantNoiseFormula` can now re-compute the famous
   {math}`1.76 + 6.02 n` equation.
+  
+- Fullscale signals are now defined by {any}`fullscale_gen` and
+  {any}`generateSimulationOperands` uses that to generate fullscale
+  signals without a nasty self-defined *CDF*.
 
 ## 0.0.1
 Base version.

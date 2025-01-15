@@ -6,7 +6,7 @@ import math
 import copy
 from .array import normalizeAxes,padAxes, getValueAlongAxis, padToEqualShape, getValueFromBroadcastableIndex
 from .hist import getHistValues, bincountToHistlen, histlenToBincount, checkStatisticsArgs, packHist, unpackHist, packStatistic, getHistLenFromMaxValues, STAT_AXIS
-from .rand import sinusoidal
+from .rand import sinusoidal, fullscale
 
 def probabilisticAdder(
 		tosum,
@@ -3510,7 +3510,8 @@ def generateSimulationOperands(
 		  might be suitable for basic investigations on random noise. Uses
 		  `sinusoidal_gen`.
 		  
-		- *"fullscale"* always draws the same and maximum positive value.
+		- *"fullscale"* always draws the same and maximum positive value. Uses
+		  `fullscale_gen`.
 		 
 	randomclips : (`list` or `tuple`) of `float`
 		WHere to clip the *randombehave*. This is relevant for constructing
@@ -3622,8 +3623,8 @@ def generateSimulationOperands(
 				truncnorm=scipy.stats.truncnorm,
 				#Distribution of sinusoidal amplitudes
 				sinusoidal=sinusoidal,
-				#A uniform distribution yielding just full scale values
-				fullscale=scipy.stats.uniform,
+				#A dummy distribution yielding just full scale values
+				fullscale=fullscale,
 		)
 		RANDOM_GEN_ARGS = dict(
 				uniform=dict(
@@ -3662,29 +3663,16 @@ def generateSimulationOperands(
 						scale=randomclip,
 				),
 				fullscale=dict(
+						#Sets where the fullscale occurs
 						loc=randomclip,
-						#Scale zero causes NaN cdf
-						scale=0.,
 				),
-		)
-		#Custom definitions for cds, as fullscale does not have one
-		EXPLICIT_CDFS = dict(
-				uniform=None,
-				norm=None,
-				truncnorm=None,
-				sinusoidal=None,
-				#For fullscale, cdf jumps from 0 to 1 when crossing the fullscale
-				#value.
-				fullscale=lambda a: (a >= randomclip).astype(dtype=a.dtype)
 		)
 		
 		#Instantiate a default generator, if the given generator is a valid
 		#generator key.
 		if randombehave in set(RANDOM_GEN_CLASSES.keys()):
-			explicitcdf = EXPLICIT_CDFS[randombehave]
 			randombehavelookup = RANDOM_GEN_CLASSES[randombehave](**RANDOM_GEN_ARGS[randombehave])
 		else:
-			explicitcdf = None
 			randombehavelookup = randombehave
 		
 		#The number of histogram entries we will get. Histlen regard
@@ -3759,12 +3747,8 @@ def generateSimulationOperands(
 					a_max=randomclip,
 					out=binbounds,
 			)
-			#Use cdf to integrate pdf in bounds. Possibly use explicit cdf.
-			if explicitcdf is None:
-				thiscdf = randombehavelookup.cdf
-				
-			else:
-				thiscdf = explicitcdf
+			#Use cdf to integrate pdf in bounds.
+			thiscdf = randombehavelookup.cdf
 			probabilities = thiscdf(binbounds)
 			probabilities = probabilities[1] - probabilities[0]
 			#Add power below lowest bin bound and above highest to border bins.
