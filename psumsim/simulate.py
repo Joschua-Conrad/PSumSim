@@ -3507,7 +3507,8 @@ def generateSimulationOperands(
 		  occur and never result in clipping.
 		  
 		- *"sinusoidal"* uses the distribution of sinusoidal amplitudes and
-		  might be suitable for basic investigations on random noise.
+		  might be suitable for basic investigations on random noise. Uses
+		  `sinusoidal_gen`.
 		  
 		- *"fullscale"* always draws the same and maximum positive value.
 		 

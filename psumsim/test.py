@@ -3982,6 +3982,9 @@ class test_misc(BaseTestCase):
 		  actually computes is :math:`6.02 log_{2}(n-1)`.
 		
 		The SNRs and the finite, large bincount are stored to JSON and NPZ files.
+		
+		The test uses `generateSimulationOperands`, `quantizeClipScaleValues`
+		and `computeSqnr`.
 		 
 		Parameters
 		----------
