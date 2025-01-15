@@ -3949,12 +3949,37 @@ class test_misc(BaseTestCase):
 		r"""Get SNR for quantizing sinusoidal signal.
 		
 		Gets sinusoidal signal at different bitwidths and computes SQNR on them.
-		Is supposed to re-produce the :math:`1.76 + 6.02n` equation. But
-		regard, that we have bincounts which are some :math:`2^{n}-1` and not
-		:math:`2^{n}`. Furthermore, we always need a reference for SQNR
-		computation and that is a quantized sinusoidal signal with large,
-		but finite bitwidth. So for large bitwidths, we do not see the exact
-		expected trend.
+		Is supposed to re-produce the :math:`1.76 + 6.02n` equation. Some things
+		to regard:
+			
+		- `computeSqnr` always needs the histogram of the unquantized signal.
+		  For the equation, we would need a histogram with an infinite number
+		  of bins. But we only have one with a large number of bins. Hence,
+		  
+		  - one rather observes :math:`6.02n` without *1.76*. Because the
+		    offset in SQNR is already inside the reference signal.
+			
+		  - for large bitwidths, the values deviate from equation. Because
+		    the error added by quantizing to *n* bits no more dominates the
+			error added by having an already quantized reference.
+			
+		- To observe the equation correctly, one needs to use *uniform* instead
+		  of *sinusoidal*. Because, for very low bitwidths, the quantization
+		  error becomes dependent of the signal waveform and can no more be
+		  approximated with a bunch of triangles. And only uniformly distributed
+		  signals yield by a linear waveform have triangular-shaped quantization
+		  error even in that case.
+		  
+		- The bincounts we set are a number of levels, not bits. And they
+		  are not a power of two. So if *n* is the bincount this function
+		  exports, you will observe :math:`6.02 log_{2}(n)`.
+		  
+		- Lastly, the number of quantization steps and bincount *n* is then often
+		  used to derive a maximum quantization error :math:`\frac{1}{2n}`
+		  referred to full scale. But that is not entirely true: if one has
+		  *n* quantization steps, the quantization step height is :math:`n-1`
+		  and that is what the equation cares about. So what this function then
+		  actually computes is :math:`6.02 log_{2}(n-1)`.
 		
 		The SNRs and the finite, large bincount are stored to a JSON file.
 		 
