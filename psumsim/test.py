@@ -3949,20 +3949,20 @@ class test_misc(BaseTestCase):
 		r"""Get SNR for quantizing sinusoidal signal.
 		
 		Gets sinusoidal signal at different bitwidths and computes SQNR on them.
-		Is supposed to re-produce the :math:`1.76 + 6.02n` equation. Some things
-		to regard:
+		Is supposed to re-produce the :math:`1.76 + 6.02n` equation [QUANT]_.
+		Some things to regard:
 			
 		- `computeSqnr` always needs the histogram of the unquantized signal.
 		  For the equation, we would need a histogram with an infinite number
 		  of bins. But we only have one with a large number of bins. Hence,
-		  
+
 		  - one rather observes :math:`6.02n` without *1.76*. Because the
 		    offset in SQNR is already inside the reference signal.
 			
 		  - for large bitwidths, the values deviate from equation. Because
 		    the error added by quantizing to *n* bits no more dominates the
-			error added by having an already quantized reference.
-			
+		    error added by having an already quantized reference.
+
 		- To observe the equation correctly, one needs to use *uniform* instead
 		  of *sinusoidal*. Because, for very low bitwidths, the quantization
 		  error becomes dependent of the signal waveform and can no more be

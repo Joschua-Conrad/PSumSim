@@ -130,7 +130,7 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		
 		`scipy.stats.rv_continuous.ppf` wraps this after applying *loc* and
 		*scale*. This is needed to draw numbers from this random process in
-		`scipy.stats.rv_continuous.rv` with decent performance.
+		`scipy.stats.rv_continuous.rvs` with decent performance.
 		
 		The *PPF* is the inverse of *CDF*. It is given random numbers uniformly
 		distributed on :math:`[0;1]` and should yield the sinusoidal amplitudes

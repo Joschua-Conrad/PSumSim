@@ -12,3 +12,4 @@ in docstrings are listed here.
 
 .. [IMC] E. Lee et al., “A Charge-Domain Scalable-Weight In-Memory Computing Macro With Dual-SRAM Architecture for Precision-Scalable DNN Accelerators,” IEEE Transactions on Circuits and Systems I: Regular Papers, vol. 68, no. 8, pp. 3305–3316, Aug. 2021, doi: `10.1109/TCSI.2021.3080042 <https://doi.org/10.1109/TCSI.2021.3080042>`_.
 
+.. [QUANT] W. Kester, “Taking the Mystery out of the Infamous Formula, ‘SNR = 6.02N + 1.76dB,’ and Why You Should Care.” Accessed: Jan. 15, 2025. [Online]. Available: `analog.com <https://www.analog.com/media/en/training-seminars/tutorials/MT-001.pdf>`_.
