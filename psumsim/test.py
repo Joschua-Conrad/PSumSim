@@ -3945,7 +3945,7 @@ class test_misc(BaseTestCase):
 		)
 		
 	@classmethod
-	def test_quantNoiseFormula(cls, tmp_numpy):
+	def test_quantNoiseFormula(cls, subtests, tmp_numpy):
 		r"""Get SNR for quantizing sinusoidal signal.
 		
 		Gets sinusoidal signal at different bitwidths and computes SQNR on them.
@@ -3981,10 +3981,13 @@ class test_misc(BaseTestCase):
 		  and that is what the equation cares about. So what this function then
 		  actually computes is :math:`6.02 log_{2}(n-1)`.
 		
-		The SNRs and the finite, large bincount are stored to a JSON file.
+		The SNRs and the finite, large bincount are stored to JSON and NPZ files.
 		 
 		Parameters
 		----------
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		
 		tmp_numpy : `pathlib.Path`
 			Created by `tmp_numpy` `pytest.fixture`.
 
@@ -4006,8 +4009,19 @@ class test_misc(BaseTestCase):
 		#a length-1 hist axis in statistics.
 		statisticdims = ((None, "activations"), (1000, "activationsint"))
 		
+		#Only test assertion
+		#randombehaves = randombehaves[1:]
+		#statisticdims = statisticdims[0:1]
+		
 		#Format of fields in results dict
 		exportnameformat = "randombehave_{randombehave}_dostatistic_{dostatistic}"
+		
+		#Field name to do assertion against equation: Use the one with least
+		#inaccuracies described in docstring
+		expectedassertname = "randombehave_uniform_dostatistic_False"
+		#In assertion, ignore some big bitwidths, where reference is no more
+		#good enough.
+		expectedassertignore = 5
 		
 		cases = itertools.product(randombehaves, statisticdims)
 		
@@ -4019,83 +4033,98 @@ class test_misc(BaseTestCase):
 					dostatistic=dostatistic,
 			)
 			
-			#For each case, re-generate reference
-			ref = None
+			with subtests.test(
+					topmsg="Computing SQNRs",
+					randombehave=randombehave,
+					dostatistic=dostatistic,
+			):
 			
-			#Prepare fresh results field to export this case
-			snrlist = list()
-			toexport[exportname] = snrlist
-			
-			#Walk over bitwidths
-			for histlen in histlens:
-				#Create and remember bincount, the actual number of quant steps.
-				#Only the first case will o this.
-				bincount = histlenToBincount(histlen=histlen)
-				if bincount not in bincounts:
-					bincounts.append(bincount)
-				#First bitwidth is the refernece
-				if ref is None:
-					refhistlen = histlen
-					refbincount = bincount
-				#Draw quantized operand. We draw activations and create minimum
-				#effort dummy weights and nummacs.
-				simulated = generateSimulationOperands(
-						statisticdim=statisticdim,
-						dostatisticdummy=False,
-						activationlevels=histlen,
-						weightlevels=1,
-						nummacs=1,
-						randombehave=randombehave,
-						#DOes not matter for uniform and sinusoidal distributions
-						randomclips=(2., 2.),
-				)
-				#Extract numpy array and purge unneeded dimensions. We then
-				#have statistic and hist dimensions.
-				simulated = simulated[operandfield]
-				simulated = np.squeeze(simulated, axis=1)
+				#For each case, re-generate reference
+				ref = None
 				
-				#If we create the SQNR reference right now, we remember it, but
-				#we cannot compute an SQNR without own reference
-				if ref is None:
-					ref = simulated
-				#Otherwise, compute SQNR
-				else:
-					#Equalize data by up-scaling quantized bins.
-					#equalizeQuantizedUnquantized does this, too but expects
-					#more complex input arguments yield by simulateMvm
-					rescaled, _, _, _ = quantizeClipScaleValues(
-							toprocess=simulated,
-							#Add stat and hist dims to maxhistvalue. But they
-							#both are supposed to have length 1.
-							maxhistvalue=np.expand_dims(np.array(histlen), axis=(0, 1)),
-							mergevalues=None,
-							dostatistic=dostatistic,
+				#Prepare fresh results field to export this case
+				snrlist = list()
+				toexport[exportname] = snrlist
+				
+				#Walk over bitwidths
+				for histlen in histlens:
+					#Create and remember bincount, the actual number of quant steps.
+					#Only the first case will o this.
+					bincount = histlenToBincount(histlen=histlen)
+					if bincount not in bincounts:
+						bincounts.append(bincount)
+					#First bitwidth is the refernece
+					if ref is None:
+						refhistlen = histlen
+						refbincount = bincount
+					#Draw quantized operand. We draw activations and create minimum
+					#effort dummy weights and nummacs.
+					simulated = generateSimulationOperands(
+							statisticdim=statisticdim,
 							dostatisticdummy=False,
-							cliplimitfixed=None,
-							#This is the feature used for equalization. Scale
-							#bin values up to reach desired bincount.
-							valuescale=(float(refhistlen) / float(histlen)),
-							histaxis=HIST_AXIS,
-							scaledtype="float",
+							activationlevels=histlen,
+							weightlevels=1,
+							nummacs=1,
+							randombehave=randombehave,
+							#DOes not matter for uniform and sinusoidal distributions
+							randomclips=(2., 2.),
 					)
-					#Get SQNR
-					snr, _, _, _ = computeSqnr(
-							unquantized=ref,
-							quantized=rescaled,
-							histaxis=HIST_AXIS,
-							stataxis=STAT_AXIS,
-							bincount=refbincount,
-							dostatistic=dostatistic,
-							dostatisticdummy=False,
-							errordtype="float",	
-					)
-					#Remember SQNR
-					snrlist.append(snr.item())
+					#Extract numpy array and purge unneeded dimensions. We then
+					#have statistic and hist dimensions.
+					simulated = simulated[operandfield]
+					simulated = np.squeeze(simulated, axis=1)
+					
+					#If we create the SQNR reference right now, we remember it, but
+					#we cannot compute an SQNR without own reference
+					if ref is None:
+						ref = simulated
+					#Otherwise, compute SQNR
+					else:
+						#Equalize data by up-scaling quantized bins.
+						#equalizeQuantizedUnquantized does this, too but expects
+						#more complex input arguments yield by simulateMvm
+						rescaled, _, _, _ = quantizeClipScaleValues(
+								toprocess=simulated,
+								#Add stat and hist dims to maxhistvalue. But they
+								#both are supposed to have length 1.
+								maxhistvalue=np.expand_dims(
+										np.array(histlen),
+										axis=(0, 1)
+								),
+								mergevalues=None,
+								dostatistic=dostatistic,
+								dostatisticdummy=False,
+								cliplimitfixed=None,
+								#This is the feature used for equalization. Scale
+								#bin values up to reach desired bincount.
+								valuescale=(float(refhistlen) / float(histlen)),
+								histaxis=HIST_AXIS,
+								scaledtype="float",
+						)
+						#Get SQNR
+						snr, _, _, _ = computeSqnr(
+								unquantized=ref,
+								quantized=rescaled,
+								histaxis=HIST_AXIS,
+								stataxis=STAT_AXIS,
+								bincount=refbincount,
+								dostatistic=dostatistic,
+								dostatisticdummy=False,
+								errordtype="float",	
+						)
+						#Remember SQNR
+						snrlist.append(snr.item())
 					
 		#More results fields
 		toexport["histlens"] = histlens[1:]
 		toexport["bincounts"] = bincounts[1:]
 		toexport["refbincount"] = refbincount
+		
+		#Expected results from equation. Do not use 6.02, but rather its
+		#definition
+		noisegain = 20. * math.log10(2.)
+		equation = [noisegain * math.log2(i-1.) for i in bincounts[1:]]
+		toexport["equation"] = equation
 		
 		#Export as json for debugging
 		with open((tmp_numpy / "psumsim_plot_data_snrs.json"), "wt") as fobj:
@@ -4107,6 +4136,36 @@ class test_misc(BaseTestCase):
 				file=(tmp_numpy / "psumsim_plot_data_snrs"),
 				**toexport
 		)
+		
+		#Assert values against formula
+		with subtests.test(
+				topmsg="Equation Matching",
+		):
+			result = toexport[expectedassertname][expectedassertignore:]
+			expected = toexport["equation"][expectedassertignore:]
+			#Assert with only an absolute tolerance
+			expected = pytest.approx(expected, abs=1e-2,)
+			assert expected == result, "Values do not match equation"
+		
+		#Assert stat against stoc
+		for randombehave in randombehaves:
+			with subtests.test(
+					topmsg="SQNR in stat/stoc",
+					randombehave=randombehave,
+			):
+				statname = exportnameformat.format(
+						randombehave=randombehave,
+						dostatistic=True,
+				)
+				stocname = exportnameformat.format(
+						randombehave=randombehave,
+						dostatistic=False,
+				)
+				statresult = toexport[statname]
+				stocresult = toexport[stocname]
+				statresult = pytest.approx(statresult, abs=4.)
+				assert statresult == stocresult, \
+						"SQNR differs in stat vs. stoc."
 			
 	@classmethod
 	@pytest.mark.parametrize("levels", (1, 3, 7, 15, 31, 63, 64, 127,))
