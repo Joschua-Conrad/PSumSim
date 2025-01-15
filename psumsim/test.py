@@ -14,7 +14,7 @@ import pickle
 
 from psumsim.array import normalizeAxes, getValueAlongAxis, padToEqualShape
 from psumsim.hist import histlenToBincount, bincountToHistlen, packHist, packStatistic, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
-from psumsim.simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized, generateSimulationOperands, applyCliplimitStddevAsFixedFrom
+from psumsim.simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized, generateSimulationOperands, applyCliplimitStddevAsFixedFrom, quantizeClipScaleValues
 from psumsim.plot import plotHist
 from psumsim.experiments import runAllExperiments, RunDescription						
 	
@@ -3600,7 +3600,6 @@ class test_misc(BaseTestCase):
 				nummacs=32,
 				randombehave="norm",
 				randomclips=(2., 2.,),
-
 		)
 		
 		FIGURE_NAME = "Stat_Stoc_Comparison"
@@ -3912,7 +3911,7 @@ class test_misc(BaseTestCase):
 		
 		toexport = dict()
 		
-		for randombehave in ("norm", "truncnorm", "uniform", "fullscale",):
+		for randombehave in ("norm", "truncnorm", "uniform", "fullscale", "sinusoidal"):
 			stimuli = generateSimulationOperands(
 					statisticdim=None,
 					dostatisticdummy=False,
@@ -3944,6 +3943,232 @@ class test_misc(BaseTestCase):
 				file=(tmp_numpy / "psumsim_plot_data_stimulus"),
 				**toexport
 		)
+		
+	@classmethod
+	def test_quantNoiseFormula(cls, subtests, tmp_numpy):
+		r"""Get SNR for quantizing sinusoidal signal.
+		
+		Gets sinusoidal signal at different bitwidths and computes SQNR on them.
+		Is supposed to re-produce the :math:`1.76 + 6.02n` equation [QUANT]_.
+		Some things to regard:
+			
+		- `computeSqnr` always needs the histogram of the unquantized signal.
+		  For the equation, we would need a histogram with an infinite number
+		  of bins. But we only have one with a large number of bins. Hence,
+
+		  - one rather observes :math:`6.02n` without *1.76*. Because the
+		    offset in SQNR is already inside the reference signal.
+			
+		  - for large bitwidths, the values deviate from equation. Because
+		    the error added by quantizing to *n* bits no more dominates the
+		    error added by having an already quantized reference.
+
+		- To observe the equation correctly, one needs to use *uniform* instead
+		  of *sinusoidal*. Because, for very low bitwidths, the quantization
+		  error becomes dependent of the signal waveform and can no more be
+		  approximated with a bunch of triangles. And only uniformly distributed
+		  signals yield by a linear waveform have triangular-shaped quantization
+		  error even in that case.
+		  
+		- The bincounts we set are a number of levels, not bits. And they
+		  are not a power of two. So if *n* is the bincount this function
+		  exports, you will observe :math:`6.02 log_{2}(n)`.
+		  
+		- Lastly, the number of quantization steps and bincount *n* is then often
+		  used to derive a maximum quantization error :math:`\frac{1}{2n}`
+		  referred to full scale. But that is not entirely true: if one has
+		  *n* quantization steps, the quantization step height is :math:`n-1`
+		  and that is what the equation cares about. So what this function then
+		  actually computes is :math:`6.02 log_{2}(n-1)`.
+		
+		The SNRs and the finite, large bincount are stored to JSON and NPZ files.
+		
+		The test uses `generateSimulationOperands`, `quantizeClipScaleValues`
+		and `computeSqnr`.
+		 
+		Parameters
+		----------
+		subtests : `pytest.fixture`
+			Needed to specify assertions in sub-tests.
+		
+		tmp_numpy : `pathlib.Path`
+			Created by `tmp_numpy` `pytest.fixture`.
+
+		"""
+		
+		#Will fill JSON/NPZ data here
+		toexport = dict()
+		
+		#Operands with this histlens (related to quant bitwidth) are created.
+		#FIrst one is the reference used for SQNR computation.
+		histlens = (8191, 4095, 2047, 1023, 511, 255, 127, 63, 31, 16, 7, 3, 1)
+		#Bincounts will be computed and filled here
+		bincounts = list()
+		
+		#These operand distributions are drawn
+		randombehaves = ("sinusoidal", "uniform")
+		#And we check statistic and stochastic experiment. We also need to
+		#pass name of the field returned by generateSimulationOperands to get
+		#a length-1 hist axis in statistics.
+		statisticdims = ((None, "activations"), (1000, "activationsint"))
+		
+		#Only test assertion
+		#randombehaves = randombehaves[1:]
+		#statisticdims = statisticdims[0:1]
+		
+		#Format of fields in results dict
+		exportnameformat = "randombehave_{randombehave}_dostatistic_{dostatistic}"
+		
+		#Field name to do assertion against equation: Use the one with least
+		#inaccuracies described in docstring
+		expectedassertname = "randombehave_uniform_dostatistic_False"
+		#In assertion, ignore some big bitwidths, where reference is no more
+		#good enough.
+		expectedassertignore = 5
+		
+		cases = itertools.product(randombehaves, statisticdims)
+		
+		for randombehave, statisticdim in cases:
+			statisticdim, operandfield = statisticdim
+			dostatistic = statisticdim is not None
+			exportname = exportnameformat.format(
+					randombehave=randombehave,
+					dostatistic=dostatistic,
+			)
+			
+			with subtests.test(
+					topmsg="Computing SQNRs",
+					randombehave=randombehave,
+					dostatistic=dostatistic,
+			):
+			
+				#For each case, re-generate reference
+				ref = None
+				
+				#Prepare fresh results field to export this case
+				snrlist = list()
+				toexport[exportname] = snrlist
+				
+				#Walk over bitwidths
+				for histlen in histlens:
+					#Create and remember bincount, the actual number of quant steps.
+					#Only the first case will o this.
+					bincount = histlenToBincount(histlen=histlen)
+					if bincount not in bincounts:
+						bincounts.append(bincount)
+					#First bitwidth is the refernece
+					if ref is None:
+						refhistlen = histlen
+						refbincount = bincount
+					#Draw quantized operand. We draw activations and create minimum
+					#effort dummy weights and nummacs.
+					simulated = generateSimulationOperands(
+							statisticdim=statisticdim,
+							dostatisticdummy=False,
+							activationlevels=histlen,
+							weightlevels=1,
+							nummacs=1,
+							randombehave=randombehave,
+							#DOes not matter for uniform and sinusoidal distributions
+							randomclips=(2., 2.),
+					)
+					#Extract numpy array and purge unneeded dimensions. We then
+					#have statistic and hist dimensions.
+					simulated = simulated[operandfield]
+					simulated = np.squeeze(simulated, axis=1)
+					
+					#If we create the SQNR reference right now, we remember it, but
+					#we cannot compute an SQNR without own reference
+					if ref is None:
+						ref = simulated
+					#Otherwise, compute SQNR
+					else:
+						#Equalize data by up-scaling quantized bins.
+						#equalizeQuantizedUnquantized does this, too but expects
+						#more complex input arguments yield by simulateMvm
+						rescaled, _, _, _ = quantizeClipScaleValues(
+								toprocess=simulated,
+								#Add stat and hist dims to maxhistvalue. But they
+								#both are supposed to have length 1.
+								maxhistvalue=np.expand_dims(
+										np.array(histlen),
+										axis=(0, 1)
+								),
+								mergevalues=None,
+								dostatistic=dostatistic,
+								dostatisticdummy=False,
+								cliplimitfixed=None,
+								#This is the feature used for equalization. Scale
+								#bin values up to reach desired bincount.
+								valuescale=(float(refhistlen) / float(histlen)),
+								histaxis=HIST_AXIS,
+								scaledtype="float",
+						)
+						#Get SQNR
+						snr, _, _, _ = computeSqnr(
+								unquantized=ref,
+								quantized=rescaled,
+								histaxis=HIST_AXIS,
+								stataxis=STAT_AXIS,
+								bincount=refbincount,
+								dostatistic=dostatistic,
+								dostatisticdummy=False,
+								errordtype="float",	
+						)
+						#Remember SQNR
+						snrlist.append(snr.item())
+					
+		#More results fields
+		toexport["histlens"] = histlens[1:]
+		toexport["bincounts"] = bincounts[1:]
+		toexport["refbincount"] = refbincount
+		
+		#Expected results from equation. Do not use 6.02, but rather its
+		#definition
+		noisegain = 20. * math.log10(2.)
+		equation = [noisegain * math.log2(i-1.) for i in bincounts[1:]]
+		toexport["equation"] = equation
+		
+		#Export as json for debugging
+		with open((tmp_numpy / "psumsim_plot_data_snrs.json"), "wt") as fobj:
+			json.dump(toexport, fp=fobj, indent="\t")
+			
+		#Export as numpy for plotting
+		toexport = {k:np.array(v) for k, v in toexport.items()}
+		np.savez(
+				file=(tmp_numpy / "psumsim_plot_data_snrs"),
+				**toexport
+		)
+		
+		#Assert values against formula
+		with subtests.test(
+				topmsg="Equation Matching",
+		):
+			result = toexport[expectedassertname][expectedassertignore:]
+			expected = toexport["equation"][expectedassertignore:]
+			#Assert with only an absolute tolerance
+			expected = pytest.approx(expected, abs=1e-2,)
+			assert expected == result, "Values do not match equation"
+		
+		#Assert stat against stoc
+		for randombehave in randombehaves:
+			with subtests.test(
+					topmsg="SQNR in stat/stoc",
+					randombehave=randombehave,
+			):
+				statname = exportnameformat.format(
+						randombehave=randombehave,
+						dostatistic=True,
+				)
+				stocname = exportnameformat.format(
+						randombehave=randombehave,
+						dostatistic=False,
+				)
+				statresult = toexport[statname]
+				stocresult = toexport[stocname]
+				statresult = pytest.approx(statresult, abs=4.)
+				assert statresult == stocresult, \
+						"SQNR differs in stat vs. stoc."
 			
 	@classmethod
 	@pytest.mark.parametrize("levels", (1, 3, 7, 15, 31, 63, 64, 127,))

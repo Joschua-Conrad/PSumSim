@@ -6,6 +6,7 @@ import math
 import copy
 from .array import normalizeAxes,padAxes, getValueAlongAxis, padToEqualShape, getValueFromBroadcastableIndex
 from .hist import getHistValues, bincountToHistlen, histlenToBincount, checkStatisticsArgs, packHist, unpackHist, packStatistic, getHistLenFromMaxValues, STAT_AXIS
+from .rand import sinusoidal
 
 def probabilisticAdder(
 		tosum,
@@ -2898,6 +2899,7 @@ def computeSqnr(
 	unquantized : `numpy.ndarray`
 		The reference histogram with the clean signal without noise.
 		All simulation modes as described in `statstoc` are allowed.
+		
 	quantized : `numpy.ndarray`
 		The quantized histogram with quantization/clipping noise on top.
 		Must have same simulation mode and length as *unquantized*.
@@ -3504,6 +3506,10 @@ def generateSimulationOperands(
 		- *"truncnorm"* also uses a normal distribution, but the outliers never
 		  occur and never result in clipping.
 		  
+		- *"sinusoidal"* uses the distribution of sinusoidal amplitudes and
+		  might be suitable for basic investigations on random noise. Uses
+		  `sinusoidal_gen`.
+		  
 		- *"fullscale"* always draws the same and maximum positive value.
 		 
 	randomclips : (`list` or `tuple`) of `float`
@@ -3614,6 +3620,8 @@ def generateSimulationOperands(
 				#Normal distribution, which is truncated and which does not
 				#clip values.
 				truncnorm=scipy.stats.truncnorm,
+				#Distribution of sinusoidal amplitudes
+				sinusoidal=sinusoidal,
 				#A uniform distribution yielding just full scale values
 				fullscale=scipy.stats.uniform,
 		)
@@ -3646,6 +3654,13 @@ def generateSimulationOperands(
 						#Values larger than this are not dawn.
 						b=randomclip,
 				),
+				sinusoidal=dict(
+						#Normal sinusoidal distribution generates values between
+						#-1 and 1. Use scale to generate on the same range
+						#like uniform distribution.
+						loc=0.,
+						scale=randomclip,
+				),
 				fullscale=dict(
 						loc=randomclip,
 						#Scale zero causes NaN cdf
@@ -3657,6 +3672,7 @@ def generateSimulationOperands(
 				uniform=None,
 				norm=None,
 				truncnorm=None,
+				sinusoidal=None,
 				#For fullscale, cdf jumps from 0 to 1 when crossing the fullscale
 				#value.
 				fullscale=lambda a: (a >= randomclip).astype(dtype=a.dtype)
