@@ -3945,7 +3945,7 @@ class test_misc(BaseTestCase):
 		)
 		
 	@classmethod
-	def test_sinusoidQuant(cls, tmp_numpy):
+	def test_quantNoiseFormula(cls, tmp_numpy):
 		r"""Get SNR for quantizing sinusoidal signal.
 		
 		Gets sinusoidal signal at different bitwidths and computes SQNR on them.
@@ -3990,70 +3990,123 @@ class test_misc(BaseTestCase):
 
 		"""
 		
+		#Will fill JSON/NPZ data here
 		toexport = dict()
 		
+		#Operands with this histlens (related to quant bitwidth) are created.
+		#FIrst one is the reference used for SQNR computation.
 		histlens = (8191, 4095, 2047, 1023, 511, 255, 127, 63, 31, 16, 7, 3, 1)
-		ref = None
+		#Bincounts will be computed and filled here
+		bincounts = list()
 		
-		snrs = dict()
+		#These operand distributions are drawn
+		randombehaves = ("sinusoidal", "uniform")
+		#And we check statistic and stochastic experiment. We also need to
+		#pass name of the field returned by generateSimulationOperands to get
+		#a length-1 hist axis in statistics.
+		statisticdims = ((None, "activations"), (1000, "activationsint"))
 		
-		for histlen in histlens:
-			bincount = histlenToBincount(histlen=histlen)
-			
-			if ref is None:
-				refhistlen = histlen
-				refbincount = bincount
-			
-			simulated = generateSimulationOperands(
-					statisticdim=None,
-					dostatisticdummy=False,
-					activationlevels=histlen,
-					weightlevels=1,
-					nummacs=1,
-					randombehave="sinusoidal",
-					randomclips=(2., 2.),
+		#Format of fields in results dict
+		exportnameformat = "randombehave_{randombehave}_dostatistic_{dostatistic}"
+		
+		cases = itertools.product(randombehaves, statisticdims)
+		
+		for randombehave, statisticdim in cases:
+			statisticdim, operandfield = statisticdim
+			dostatistic = statisticdim is not None
+			exportname = exportnameformat.format(
+					randombehave=randombehave,
+					dostatistic=dostatistic,
 			)
 			
-			simulated = simulated["activations"]
-			simulated = np.squeeze(simulated, axis=1)
+			#For each case, re-generate reference
+			ref = None
 			
+			#Prepare fresh results field to export this case
+			snrlist = list()
+			toexport[exportname] = snrlist
 			
-
-			if ref is None:
-				ref = simulated
-			else:
-				
-				rescaled, _, _, _ = quantizeClipScaleValues(
-						toprocess=simulated,
-						maxhistvalue=np.expand_dims(np.array(histlen), axis=(0, 1)),
-						mergevalues=None,
-						dostatistic=False,
+			#Walk over bitwidths
+			for histlen in histlens:
+				#Create and remember bincount, the actual number of quant steps.
+				#Only the first case will o this.
+				bincount = histlenToBincount(histlen=histlen)
+				if bincount not in bincounts:
+					bincounts.append(bincount)
+				#First bitwidth is the refernece
+				if ref is None:
+					refhistlen = histlen
+					refbincount = bincount
+				#Draw quantized operand. We draw activations and create minimum
+				#effort dummy weights and nummacs.
+				simulated = generateSimulationOperands(
+						statisticdim=statisticdim,
 						dostatisticdummy=False,
-						cliplimitfixed=None,
-						valuescale=(float(refhistlen) / float(histlen)),
-						histaxis=HIST_AXIS,
-						scaledtype="float",
+						activationlevels=histlen,
+						weightlevels=1,
+						nummacs=1,
+						randombehave=randombehave,
+						#DOes not matter for uniform and sinusoidal distributions
+						randomclips=(2., 2.),
 				)
+				#Extract numpy array and purge unneeded dimensions. We then
+				#have statistic and hist dimensions.
+				simulated = simulated[operandfield]
+				simulated = np.squeeze(simulated, axis=1)
 				
-				snr, _, _, _ = computeSqnr(
-						unquantized=ref,
-						quantized=rescaled,
-						histaxis=HIST_AXIS,
-						stataxis=STAT_AXIS,
-						bincount=refbincount,
-						dostatistic=False,
-						dostatisticdummy=False,
-						errordtype="float",	
-				)
-				snrs[bincount] = snr.item()
-		
-		#Export stuff
-		toexport = dict()
+				#If we create the SQNR reference right now, we remember it, but
+				#we cannot compute an SQNR without own reference
+				if ref is None:
+					ref = simulated
+				#Otherwise, compute SQNR
+				else:
+					#Equalize data by up-scaling quantized bins.
+					#equalizeQuantizedUnquantized does this, too but expects
+					#more complex input arguments yield by simulateMvm
+					rescaled, _, _, _ = quantizeClipScaleValues(
+							toprocess=simulated,
+							#Add stat and hist dims to maxhistvalue. But they
+							#both are supposed to have length 1.
+							maxhistvalue=np.expand_dims(np.array(histlen), axis=(0, 1)),
+							mergevalues=None,
+							dostatistic=dostatistic,
+							dostatisticdummy=False,
+							cliplimitfixed=None,
+							#This is the feature used for equalization. Scale
+							#bin values up to reach desired bincount.
+							valuescale=(float(refhistlen) / float(histlen)),
+							histaxis=HIST_AXIS,
+							scaledtype="float",
+					)
+					#Get SQNR
+					snr, _, _, _ = computeSqnr(
+							unquantized=ref,
+							quantized=rescaled,
+							histaxis=HIST_AXIS,
+							stataxis=STAT_AXIS,
+							bincount=refbincount,
+							dostatistic=dostatistic,
+							dostatisticdummy=False,
+							errordtype="float",	
+					)
+					#Remember SQNR
+					snrlist.append(snr.item())
+					
+		#More results fields
+		toexport["histlens"] = histlens[1:]
+		toexport["bincounts"] = bincounts[1:]
 		toexport["refbincount"] = refbincount
-		toexport["snrs"] = snrs
 		
+		#Export as json for debugging
 		with open((tmp_numpy / "psumsim_plot_data_snrs.json"), "wt") as fobj:
 			json.dump(toexport, fp=fobj, indent="\t")
+			
+		#Export as numpy for plotting
+		toexport = {k:np.array(v) for k, v in toexport.items()}
+		np.savez(
+				file=(tmp_numpy / "psumsim_plot_data_snrs"),
+				**toexport
+		)
 			
 	@classmethod
 	@pytest.mark.parametrize("levels", (1, 3, 7, 15, 31, 63, 64, 127,))
