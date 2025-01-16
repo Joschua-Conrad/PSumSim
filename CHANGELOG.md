@@ -3,6 +3,13 @@ In the version number *X.Y.Z*, Z is incremented whenever tests pass. *Y* is
 incremented for each new public merge. *X* is incremented for changes, which
 will make old configs or model files work no more.
 
+## 0.0.3
+- Fixed bug in {any}`sinusoidal_gen._ppf`, which lead to deviation between
+  statistical and stochastic simulation.
+  
+- {any}`test_quantNoiseFormula` now exports more random behaviors to draw
+  operands from.
+
 ## 0.0.2
 - Added new random process {any}`sinusoidal_gen` to draw sinusoidal operands
   from. {any}`generateSimulationOperands` is prepared to use them.

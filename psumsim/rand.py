@@ -158,7 +158,8 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		
 		#Compute function on best dtype numpy determines and only for digits
 		#where we need it.
-		ret = np.subtract(x, 0.5 * np.pi, where=good)
+		ret = np.subtract(x, 0.5, where=good)
+		np.multiply(ret, np.pi, out=ret, where=good)
 		np.sin(ret, out=ret, where=good)
 		
 		#Other digits have fixed NaN value
