@@ -4006,7 +4006,7 @@ class test_misc(BaseTestCase):
 		bincounts = list()
 		
 		#These operand distributions are drawn
-		randombehaves = ("sinusoidal", "uniform")
+		randombehaves = ("sinusoidal", "uniform", "truncnorm", "norm")
 		#And we check statistic and stochastic experiment. We also need to
 		#pass name of the field returned by generateSimulationOperands to get
 		#a length-1 hist axis in statistics.
@@ -4166,7 +4166,7 @@ class test_misc(BaseTestCase):
 				)
 				statresult = toexport[statname]
 				stocresult = toexport[stocname]
-				statresult = pytest.approx(statresult, abs=4.)
+				statresult = pytest.approx(statresult, abs=0.5)
 				assert statresult == stocresult, \
 						"SQNR differs in stat vs. stoc."
 			
