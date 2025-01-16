@@ -3985,16 +3985,18 @@ class test_misc(BaseTestCase):
 		  
 		- The bincounts we set are a number of levels, not bits. And they
 		  are not a power of two. So if *n* is the bincount this function
-		  exports, you will observe :math:`6.02 log_{2}(n)`.
+		  exports, you will observe :math:`1.76 + 6.02 log_{2}(n)`.
 		  
 		- Lastly, the number of quantization steps and bincount *n* is then often
 		  used to derive a maximum quantization error :math:`\frac{1}{2n}`
 		  referred to full scale. But that is not entirely true: if one has
 		  *n* quantization steps, the quantization step height is :math:`n-1`
 		  and that is what the equation cares about. So what this function then
-		  actually computes is :math:`6.02 log_{2}(n-1)`.
+		  actually computes is :math:`1.76 + 6.02 log_{2}(n-1)`.
 		
 		The SNRs and the finite, large bincount are stored to JSON and NPZ files.
+		Of the equation, the singal-dependent *1.76* and the bincount-dependent
+		:math:`6.02n` are exported separately.
 		
 		The test uses `generateSimulationOperands`, `quantizeClipScaleValues`
 		and `computeSqnr`.
