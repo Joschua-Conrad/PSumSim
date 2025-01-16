@@ -11,12 +11,15 @@ import json
 import math
 import pytest
 import pickle
+import scipy
 
 from psumsim.array import normalizeAxes, getValueAlongAxis, padToEqualShape
 from psumsim.hist import histlenToBincount, bincountToHistlen, packHist, packStatistic, HIST_AXIS, ACT_AXIS, WEIGHT_AXIS, MAC_AXIS, STAT_AXIS
 from psumsim.simulate import simulateMvm, computeSqnr, optimumClippingCriterion, equalizeQuantizedUnquantized, generateSimulationOperands, applyCliplimitStddevAsFixedFrom, quantizeClipScaleValues
 from psumsim.plot import plotHist
-from psumsim.experiments import runAllExperiments, RunDescription						
+from psumsim.experiments import runAllExperiments, RunDescription
+from .rand import sinusoidal
+
 	
 class BaseTestCase:
 	"""Base class to inherit some useful methods."""
@@ -3955,13 +3958,23 @@ class test_misc(BaseTestCase):
 		- `computeSqnr` always needs the histogram of the unquantized signal.
 		  For the equation, we would need a histogram with an infinite number
 		  of bins. But we only have one with a large number of bins. Hence,
-
-		  - one rather observes :math:`6.02n` without *1.76*. Because the
-		    offset in SQNR is already inside the reference signal.
-			
-		  - for large bitwidths, the values deviate from equation. Because
-		    the error added by quantizing to *n* bits no more dominates the
-		    error added by having an already quantized reference.
+		  for large bitwidths, the values deviate from equation. Because
+		  the error added by quantizing to *n* bits no more dominates the
+		  error added by having an already quantized reference.
+		  
+		- The :math:`+1.76` is only true for a sinusoid. It describes the SQNR
+		  reached when a quantizer has 0 levels and outputs 0 all the time.
+		  The quantization error (Noise) is then in [QUANT]_ assumed to be a signal
+		  with uniform distribution bound to +/- half the full scale. We define
+		  that full scale to be 1 and that signal then has a power of
+		  :math:`\frac{1}{12}`. To derive the *1.76*, we use that noise power
+		  and the full signal power to derive an SQNR. And the full signal
+		  power depends on the signal, normalized to be limited on an interval
+		  :math:`[-0.5;0.5]`. We derive that value here for each signal form
+		  by asking its random process for `scipy.stats.rv_continuous.moment`
+		  and ask for the second moment. That second moment is a
+		  probability-weighted sum of signal squares without any mean subtracing
+		  and exactly that is the signal power. We export these numbers.
 
 		- To observe the equation correctly, one needs to use *uniform* instead
 		  of *sinusoidal*. Because, for very low bitwidths, the quantization
@@ -4005,8 +4018,56 @@ class test_misc(BaseTestCase):
 		#Bincounts will be computed and filled here
 		bincounts = list()
 		
-		#These operand distributions are drawn
-		randombehaves = ("sinusoidal", "uniform", "truncnorm", "norm")
+		#the randomclip we use to draw operands.
+		randomclip = 2.
+		
+		#Mass of gaussian process in bounds +-randomclip
+		mass = scipy.stats.norm.cdf(randomclip, loc=0., scale=1.) - \
+				scipy.stats.norm.cdf(-randomclip, loc=0., scale=1.)
+		
+		#These operand distributions are drawn. For each signal we also 
+		#derive the power of the signal scaled to swing 1.0. This is needed
+		#to compute the 1.76 for a quantized sin, but is different for other
+		#signal shapes.
+		#So we take the random distributions, scale them to full scale 1.0
+		#and ask for the second momentum. That momentum is the expectation
+		#value of squared drawn values and exactly that is the signal power.
+		randombehavesignalpowers = (
+				#Sinusoidal is scaled to full scale 1
+				("sinusoidal", sinusoidal.moment(order=2, loc=0, scale=0.5),),
+				#Same for uniform. loc gives position of left edge,
+				#scale gives width
+				("uniform", scipy.stats.uniform.moment(order=2, loc=-0.5, scale=1),),
+				#Truncnorm uses an unscaled normal distribution and lets
+				#that yield values between -randomclip and +randomclip and these
+				#values are divided by (2*randomclip) and that gives a distribution,
+				#yielding only values with a swing of 1 and sampling the correct
+				#number of sigmas of a gauss.
+				("truncnorm", scipy.stats.truncnorm.moment(
+						order=2,
+						loc=0,
+						scale=1/2./randomclip,
+						a=-randomclip,
+						b=randomclip,
+				),),
+				#Same for norm dist, but this one does not accept arguments
+				#a and b. So we instead ask truncorm, revert its normalization to
+				#have area 1 of pdf in range [a;b]. We then add power of clipped
+				#bins. We do all this for an unscaled gauss, so we in the end scale
+				#down from yielding numbers in [-randomclip;randomclip] to
+				#yielding [-1;1] and then [-0.5;0.5], becaue we shall compute power
+				#of the signal with swing 1.
+				("norm", (
+						((scipy.stats.truncnorm.moment(
+								order=2,
+								loc=0.,
+								scale=1.,
+								a=-randomclip,
+								b=randomclip,
+						) * mass) + (1.-mass) * (randomclip**2.)) / \
+						(randomclip * randomclip * 2. * 2.)
+				),),
+		)
 		#And we check statistic and stochastic experiment. We also need to
 		#pass name of the field returned by generateSimulationOperands to get
 		#a length-1 hist axis in statistics.
@@ -4016,8 +4077,17 @@ class test_misc(BaseTestCase):
 		#randombehaves = randombehaves[1:]
 		#statisticdims = statisticdims[0:1]
 		
+		#Also define power of full-scale quantization noise, meaning quantizing
+		#without any bits. Our signal in the math used here is normalized to
+		#swing 1.0. So we would get a uniformly distributed quant error
+		#in bounds -0.5/+0.5. The power of this signal is 1./12., or
+		#scipy.stats.uniform.moment(order=2, loc=-0.5, scale=1)
+		worstnoisepower = 1./12.
+		
 		#Format of fields in results dict
 		exportnameformat = "randombehave_{randombehave}_dostatistic_{dostatistic}"
+		#Compute signal-dependent equation offset in these fields
+		exportoffsetnameformat = "randombehave_{randombehave}_equation_offset"
 		
 		#Field name to do assertion against equation: Use the one with least
 		#inaccuracies described in docstring
@@ -4026,9 +4096,10 @@ class test_misc(BaseTestCase):
 		#good enough.
 		expectedassertignore = 5
 		
-		cases = itertools.product(randombehaves, statisticdims)
+		cases = itertools.product(randombehavesignalpowers, statisticdims)
 		
-		for randombehave, statisticdim in cases:
+		for randombehavesignalpower, statisticdim in cases:
+			randombehave, _ = randombehavesignalpower
 			statisticdim, operandfield = statisticdim
 			dostatistic = statisticdim is not None
 			exportname = exportnameformat.format(
@@ -4070,7 +4141,7 @@ class test_misc(BaseTestCase):
 							nummacs=1,
 							randombehave=randombehave,
 							#DOes not matter for uniform and sinusoidal distributions
-							randomclips=(2., 2.),
+							randomclips=(randomclip, randomclip),
 					)
 					#Extract numpy array and purge unneeded dimensions. We then
 					#have statistic and hist dimensions.
@@ -4124,10 +4195,25 @@ class test_misc(BaseTestCase):
 		toexport["refbincount"] = refbincount
 		
 		#Expected results from equation. Do not use 6.02, but rather its
-		#definition
+		#definition.
+		#The -1 described in docstring is applied here.
 		noisegain = 20. * math.log10(2.)
 		equation = [noisegain * math.log2(i-1.) for i in bincounts[1:]]
 		toexport["equation"] = equation
+		
+		#But we also need the +1.76, which depends on the quantized signal.
+		#Compute and store that value.
+		for randombehave, signalpower in randombehavesignalpowers:
+			with subtests.test(
+					topmsg="Storing Equation Offset",
+					randombehave=randombehave,
+			):
+				exportname = exportoffsetnameformat.format(
+						randombehave=randombehave,
+				)
+				signalpower = signalpower.item()
+				offset = 10. * math.log10(signalpower / worstnoisepower)
+				toexport[exportname] = offset
 		
 		#Export as json for debugging
 		with open((tmp_numpy / "psumsim_plot_data_snrs.json"), "wt") as fobj:
@@ -4151,7 +4237,7 @@ class test_misc(BaseTestCase):
 			assert expected == result, "Values do not match equation"
 		
 		#Assert stat against stoc
-		for randombehave in randombehaves:
+		for randombehave, _ in randombehavesignalpowers:
 			with subtests.test(
 					topmsg="SQNR in stat/stoc",
 					randombehave=randombehave,

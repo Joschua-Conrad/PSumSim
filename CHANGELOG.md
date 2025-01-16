@@ -9,6 +9,9 @@ will make old configs or model files work no more.
   
 - {any}`test_quantNoiseFormula` now exports more random behaviors to draw
   operands from.
+  
+- {any}`test_quantNoiseFormula` now also derives an expected SQNR
+  bitwidth-independent offset.
 
 ## 0.0.2
 - Added new random process {any}`sinusoidal_gen` to draw sinusoidal operands
