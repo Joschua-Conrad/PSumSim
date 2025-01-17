@@ -3977,11 +3977,21 @@ class test_misc(BaseTestCase):
 		  and exactly that is the signal power. We export these numbers.
 
 		- To observe the equation correctly, one needs to use *uniform* instead
-		  of *sinusoidal*. Because, for very low bitwidths, the quantization
+		  of e.g. *sinusoidal*. Because, for very low bitwidths, the quantization
 		  error becomes dependent of the signal waveform and can no more be
 		  approximated with a bunch of triangles. And only uniformly distributed
 		  signals yield by a linear waveform have triangular-shaped quantization
 		  error even in that case.
+		  
+		- The *norm* distribution shows a slighly larger SQNR than what the
+		  equation would expect. Because this distribution uses a clip operation
+		  to clip values outside +/- randomclip to exactly randomclip. And these
+		  values are drawn from the random process at fullscale and are quantized
+		  to exactly fullscale. So for these values, no quantization error is
+		  introduced and the assumption that quantization errors are distributed
+		  uniformly is now wrong: there are more values with 0 quantization error.
+		  Increase randomclip and less values experience clipping and the
+		  effect vanishes.
 		  
 		- The bincounts we set are a number of levels, not bits. And they
 		  are not a power of two. So if *n* is the bincount this function
@@ -3995,8 +4005,9 @@ class test_misc(BaseTestCase):
 		  actually computes is :math:`1.76 + 6.02 log_{2}(n-1)`.
 		
 		The SNRs and the finite, large bincount are stored to JSON and NPZ files.
-		Of the equation, the singal-dependent *1.76* and the bincount-dependent
-		:math:`6.02n` are exported separately.
+		Of the equation, the signal-dependent *1.76* and the bincount-dependent
+		:math:`6.02n` are exported separately. Results for statistic and
+		stochastic (see `dataformat`) are exported.
 		
 		The test uses `generateSimulationOperands`, `quantizeClipScaleValues`
 		and `computeSqnr`.
@@ -4087,7 +4098,7 @@ class test_misc(BaseTestCase):
 		worstnoisepower = 1./12.
 		
 		#Format of fields in results dict
-		exportnameformat = "randombehave_{randombehave}_dostatistic_{dostatistic}"
+		exportsqnrnameformat = "randombehave_{randombehave}_dostatistic_{dostatistic}"
 		#Compute signal-dependent equation offset in these fields
 		exportoffsetnameformat = "randombehave_{randombehave}_equation_offset"
 		
@@ -4104,7 +4115,7 @@ class test_misc(BaseTestCase):
 			randombehave, _ = randombehavesignalpower
 			statisticdim, operandfield = statisticdim
 			dostatistic = statisticdim is not None
-			exportname = exportnameformat.format(
+			exportname = exportsqnrnameformat.format(
 					randombehave=randombehave,
 					dostatistic=dostatistic,
 			)
@@ -4244,11 +4255,11 @@ class test_misc(BaseTestCase):
 					topmsg="SQNR in stat/stoc",
 					randombehave=randombehave,
 			):
-				statname = exportnameformat.format(
+				statname = exportsqnrnameformat.format(
 						randombehave=randombehave,
 						dostatistic=True,
 				)
-				stocname = exportnameformat.format(
+				stocname = exportsqnrnameformat.format(
 						randombehave=randombehave,
 						dostatistic=False,
 				)
