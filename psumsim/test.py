@@ -4045,12 +4045,13 @@ class test_misc(BaseTestCase):
 		#So we take the random distributions, scale them to full scale 1.0
 		#and ask for the second momentum. That momentum is the expectation
 		#value of squared drawn values and exactly that is the signal power.
-		randombehavesignalpowers = (
+		#Also store absolute tolerance for assertion
+		randombehavesignalpowertols = (
 				#Sinusoidal is scaled to full scale 1
-				("sinusoidal", sinusoidal.moment(order=2, loc=0, scale=0.5),),
+				("sinusoidal", sinusoidal.moment(order=2, loc=0, scale=0.5), 1.5,),
 				#Same for uniform. loc gives position of left edge,
 				#scale gives width
-				("uniform", scipy.stats.uniform.moment(order=2, loc=-0.5, scale=1),),
+				("uniform", scipy.stats.uniform.moment(order=2, loc=-0.5, scale=1), 1e-2,),
 				#Truncnorm uses an unscaled normal distribution and lets
 				#that yield values between -randomclip and +randomclip and these
 				#values are divided by (2*randomclip) and that gives a distribution,
@@ -4062,7 +4063,7 @@ class test_misc(BaseTestCase):
 						scale=1/2./randomclip,
 						a=-randomclip,
 						b=randomclip,
-				),),
+				), 1e-1,),
 				#Same for norm dist, but this one does not accept arguments
 				#a and b. So we instead ask truncorm, revert its normalization to
 				#have area 1 of pdf in range [a;b]. We then add power of clipped
@@ -4079,8 +4080,12 @@ class test_misc(BaseTestCase):
 								b=randomclip,
 						) * mass) + (1.-mass) * (randomclip**2.)) / \
 						(randomclip * randomclip * 2. * 2.)
-				),),
+				), 0.5,),
 		)
+			
+		#Run test for only a single signal
+		#randombehavesignalpowertols = (randombehavesignalpowertols[3],)
+		
 		#And we check statistic and stochastic experiment. We also need to
 		#pass name of the field returned by generateSimulationOperands to get
 		#a length-1 hist axis in statistics.
@@ -4102,17 +4107,15 @@ class test_misc(BaseTestCase):
 		#Compute signal-dependent equation offset in these fields
 		exportoffsetnameformat = "randombehave_{randombehave}_equation_offset"
 		
-		#Field name to do assertion against equation: Use the one with least
-		#inaccuracies described in docstring
-		expectedassertname = "randombehave_uniform_dostatistic_False"
+		#Do assertion against equation:
 		#In assertion, ignore some big bitwidths, where reference is no more
 		#good enough.
 		expectedassertignore = 5
 		
-		cases = itertools.product(randombehavesignalpowers, statisticdims)
+		cases = itertools.product(randombehavesignalpowertols, statisticdims)
 		
-		for randombehavesignalpower, statisticdim in cases:
-			randombehave, _ = randombehavesignalpower
+		for randombehavesignalpowertol, statisticdim in cases:
+			randombehave, _, _ = randombehavesignalpowertol
 			statisticdim, operandfield = statisticdim
 			dostatistic = statisticdim is not None
 			exportname = exportsqnrnameformat.format(
@@ -4216,7 +4219,7 @@ class test_misc(BaseTestCase):
 		
 		#But we also need the +1.76, which depends on the quantized signal.
 		#Compute and store that value.
-		for randombehave, signalpower in randombehavesignalpowers:
+		for randombehave, signalpower, _ in randombehavesignalpowertols:
 			with subtests.test(
 					topmsg="Storing Equation Offset",
 					randombehave=randombehave,
@@ -4240,17 +4243,27 @@ class test_misc(BaseTestCase):
 		)
 		
 		#Assert values against formula
-		with subtests.test(
-				topmsg="Equation Matching",
-		):
-			result = toexport[expectedassertname][expectedassertignore:]
-			expected = toexport["equation"][expectedassertignore:]
-			#Assert with only an absolute tolerance
-			expected = pytest.approx(expected, abs=1e-2,)
-			assert expected == result, "Values do not match equation"
+		for randombehave, _, abstol in randombehavesignalpowertols:
+			with subtests.test(
+					topmsg="Equation Matching",
+					randombehave=randombehave,
+			):
+				resultname = exportsqnrnameformat.format(
+						randombehave=randombehave,
+						dostatistic=False,
+				)
+				offsetname = exportoffsetnameformat.format(
+						randombehave=randombehave,
+				)
+				result = toexport[resultname][expectedassertignore:]
+				expected = toexport["equation"][expectedassertignore:]
+				expected = expected + toexport[offsetname]
+				#Assert with only an absolute tolerance
+				expected = pytest.approx(expected, abs=abstol,)
+				assert expected == result, "Values do not match equation"
 		
 		#Assert stat against stoc
-		for randombehave, _ in randombehavesignalpowers:
+		for randombehave, _, _ in randombehavesignalpowertols:
 			with subtests.test(
 					topmsg="SQNR in stat/stoc",
 					randombehave=randombehave,
