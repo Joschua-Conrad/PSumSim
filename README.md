@@ -26,11 +26,6 @@ the published paper:
 }
 ```
 
-## Information for Reviewers
-In case of acceptance of the provided manuscript, this repository is made available
-publicly under an open-source license. Currently, it is solely provided
-for the purpose of reviewing the manuscript at-hand. See {std:ref}`infolicense`.
-
 ## What PSumSim Can Do
 
 - Create operands for MVM applications as numbers drawn from a random process
@@ -185,4 +180,4 @@ support by the state of Baden-Württemberg through bwHPC.
 - [ ] Add *date*, *doi*, *url*, *pages* to *CITATION.bib* and *README.md*
 - [ ] Make repository public
 - [ ] Update repository link in manuscript
-- [ ] Remove [Information for Reviewers](#information-for-reviewers)
+- [X] Remove [Information for Reviewers](#information-for-reviewers)
