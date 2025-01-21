@@ -21,7 +21,7 @@ keywords = ["neural networks", "matrix-vector multiplication", "stochastic model
 classifiers = [
 	"Environment :: Console",
 	"Intended Audience :: Science/Research",
-	"License :: Other/Proprietary License",
+	"License :: OSI Approved :: Apache Software License",
 	"Operating System :: OS Independent",
 	"Programming Language :: Python :: 3 :: Only",
 	"Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",

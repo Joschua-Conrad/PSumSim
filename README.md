@@ -174,7 +174,7 @@ support by the state of Baden-Württemberg through bwHPC.
 
 ## ToDos for Publishing After Review
 
-- [ ] Update license
+- [X] Update license
 - [X] Fill [How to Cite](#how-to-cite)
 - [ ] Add *date-published*, *doi*, *url* to *CITATION.cff*
 - [ ] Add *date*, *doi*, *url*, *pages* to *CITATION.bib* and *README.md*
