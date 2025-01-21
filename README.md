@@ -5,7 +5,7 @@
 This project includes a Python package useful for simulating partial-sum
 quantization in matrix-vector multipliers (MVMs) using a histogram-based
 data format.
-Designed at the Institute of Microelectronics, Ulm University, Ulm, Germany
+Written at the Institute of Microelectronics, Ulm University, Ulm, Germany
 by Joschua Conrad under the supervision of Prof. Maurits Ortmanns.
 Published at ISCAS 2025.
 Please acknowledge the license: {std:ref}`infolicense`.
@@ -180,4 +180,4 @@ support by the state of Baden-Württemberg through bwHPC.
 - [ ] Add *date*, *doi*, *url*, *pages* to *CITATION.bib* and *README.md*
 - [ ] Make repository public
 - [ ] Update repository link in manuscript
-- [X] Remove [Information for Reviewers](#information-for-reviewers)
+- [X] Remove *Information for Reviewers*
