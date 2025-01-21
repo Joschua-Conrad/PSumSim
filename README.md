@@ -179,5 +179,5 @@ support by the state of Baden-Württemberg through bwHPC.
 - [ ] Add *date-published*, *doi*, *url* to *CITATION.cff*
 - [ ] Add *date*, *doi*, *url*, *pages* to *CITATION.bib* and *README.md*
 - [ ] Make repository public
-- [ ] Update repository link in manuscript
+- [X] Update repository link in manuscript
 - [X] Remove *Information for Reviewers*
