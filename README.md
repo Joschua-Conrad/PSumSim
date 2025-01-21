@@ -178,6 +178,6 @@ support by the state of Baden-Württemberg through bwHPC.
 - [X] Fill [How to Cite](#how-to-cite)
 - [ ] Add *date-published*, *doi*, *url* to *CITATION.cff*
 - [ ] Add *date*, *doi*, *url*, *pages* to *CITATION.bib* and *README.md*
-- [ ] Make repository public
+- [X] Make repository public
 - [X] Update repository link in manuscript
 - [X] Remove *Information for Reviewers*
