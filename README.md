@@ -5,6 +5,26 @@
 This project includes a Python package useful for simulating partial-sum
 quantization in matrix-vector multipliers (MVMs) using a histogram-based
 data format.
+Designed at the Institute of Microelectronics, Ulm University, Ulm, Germany
+by Joschua Conrad under the supervision of Prof. Maurits Ortmanns.
+Published at ISCAS 2025.
+Please acknowledge the license: {std:ref}`infolicense`.
+
+(readmecite)=
+## How to Cite
+When using the code or concepts shown here for your own work, please cite
+the published paper:
+
+```bibtex
+@inproceedings{Conrad_Confidence_Boosting_2024,
+	author = {Conrad, Joschua and Wilhelmstätter, Simon and Mandry, Holger and Asthana, Rohan and Belagiannis, Vasileios and Ortmanns, Maurits},
+	title = {PSumSim: A Simulator for Partial-Sum Quantization in Analog Matrix-Vector Multipliers},
+	booktitle = {2025 IEEE International Symposium on Circuits and Systems {(ISCAS)}},
+	eventtitle = {2025 IEEE International Symposium on Circuits and Systems {(ISCAS)}},
+	publisher = {IEEE},
+	location = {Londong, GB},
+}
+```
 
 ## Information for Reviewers
 In case of acceptance of the provided manuscript, this repository is made available
@@ -151,10 +171,6 @@ is to run a specific test case and exit immediately if that one fails,
 as run e.g. by `psumsim_test -x -k "test_optimumClippingCriterion"` for the
 test {any}`test_optimumClippingCriterion`.
 
-(readmecite)=
-## How to Cite
-Will be filled after review.
-
 (readmeacknowledge)=
 ## Acknowledgment
 This work was funded by the *German National Science Foundation (DFG)* under
@@ -164,7 +180,9 @@ support by the state of Baden-Württemberg through bwHPC.
 ## ToDos for Publishing After Review
 
 - [ ] Update license
-- [ ] Fill [How to Cite](#how-to-cite)
+- [X] Fill [How to Cite](#how-to-cite)
+- [ ] Add *date-published*, *doi*, *url* to *CITATION.cff*
+- [ ] Add *date*, *doi*, *url*, *pages* to *CITATION.bib* and *README.md*
 - [ ] Make repository public
 - [ ] Update repository link in manuscript
 - [ ] Remove [Information for Reviewers](#information-for-reviewers)
