@@ -119,8 +119,8 @@ class SHAPE_ENUM(enum.Enum):
 	MAC_IN_STAT_ENUM = enum.auto()
 	"""Like `MAC_HIST_ENUM`, but *1* in statistic runs."""
 	
-	MAC_CHUNKED_ENUM = enum.auto()
-	"""Exemplary chunkcount when chunking `MAC_AXIS` with *chunksize* 5."""
+	MAC_TILED_ENUM = enum.auto()
+	"""Exemplary tilecount when tiling `MAC_AXIS` with *tilesize* 5."""
 	
 	HIST_TO_BINS_ENUM = enum.auto()
 	"""Call `histlenToBincount`."""
@@ -186,14 +186,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(	
 						reduceaxes=MAC_AXIS,
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -219,14 +219,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(	
 						reduceaxes=MAC_AXIS,
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -250,14 +250,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(	
 						reduceaxes=tuple(),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -285,14 +285,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel="digital",
@@ -313,14 +313,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel="analog",
@@ -357,14 +357,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=(True, True,),
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel="digital",
@@ -388,14 +388,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS+2,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel="analog",
@@ -442,14 +442,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=(True, True,),
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel="digital",
@@ -471,32 +471,32 @@ class test_simulation(BaseTestCase):
 				("weightactreducedideal",),
 			),
 		),
-		#Sum the MACs in chunks, then over its chunks and then over
+		#Sum the MACs in tiles, then over its tiles and then over
 		#all axes together.
-		#Try giving chunksize and positionweights as tuples and
+		#Try giving tilesize and positionweights as tuples and
 		#setting explicit values for positionweightsonehot and
-		#chunkoffsetsteps. We need a single offset with value 0, as the
-		#chunked MAC axis has posweights same and they do not need any
+		#tileoffsetsteps. We need a single offset with value 0, as the
+		#tiled MAC axis has posweights same and they do not need any
 		#offset.
 		(
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=(4,),
+						tilesizes=(4,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=(None,),
 						positionweightsonehot=(None,),
 						disablereducecarries=(None,),
-						chunkoffsetsteps=(None,),
+						tileoffsetsteps=(None,),
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
 						allowoptim=True,
 				),
 				#THe MAC axis is not removed, it is quartered and therefore
-				#the histogram axis is only as long as a chunk
+				#the histogram axis is only as long as a tile
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
 						(SHAPE_ENUM.MAC_HIST_ENUM, 0.25,),
@@ -514,20 +514,20 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=(None,),
+						tilesizes=(None,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("same",),
 						positionweightsonehot=(False,),
 						disablereducecarries=(False,),
-						chunkoffsetsteps=(1,),
+						tileoffsetsteps=(1,),
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
 						allowoptim=True,
 				),
-				#Now be left with resolved MAC chunks
+				#Now be left with resolved MAC tiles
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
 						(SHAPE_ENUM.ACT_BINS_ENUM,),
@@ -541,14 +541,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=(True, True,),
 						disablereducecarries=(False, False,),
-						chunkoffsetsteps=(1, 1,),
+						tileoffsetsteps=(1, 1,),
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
@@ -569,19 +569,19 @@ class test_simulation(BaseTestCase):
 				("allreducedideal",),
 			)
 		),
-		#Also chunk MAC axis, but into a fractional number of chunks.
+		#Also tile MAC axis, but into a fractional number of tiles.
 		(
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=(5,),
+						tilesizes=(5,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -589,7 +589,7 @@ class test_simulation(BaseTestCase):
 				),
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
-						(SHAPE_ENUM.MAC_CHUNKED_ENUM,),
+						(SHAPE_ENUM.MAC_TILED_ENUM,),
 						(SHAPE_ENUM.ACT_BINS_ENUM,),
 						(SHAPE_ENUM.WEIGHT_BINS_ENUM,),
 						(
@@ -604,21 +604,21 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
 						allowoptim=True,
 				),
-				#Now be left with resolved MAC chunks. HIst entries unsued
-				#due to residual chunks have been removed automatically.
+				#Now be left with resolved MAC tiles. HIst entries unsued
+				#due to residual tiles have been removed automatically.
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
 						(SHAPE_ENUM.ACT_BINS_ENUM,),
@@ -634,14 +634,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
@@ -662,7 +662,7 @@ class test_simulation(BaseTestCase):
 				("allreducedideal",),
 			)
 		),
-		#Sum over bits with chunks. Test that later the chunks can be
+		#Sum over bits with tiles. Test that later the tiles can be
 		#merged with bit-ike weighting. Also swap act and weight in axes
 		#here.
 		(
@@ -670,14 +670,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -694,21 +694,21 @@ class test_simulation(BaseTestCase):
 				#This was the regualr MAC reduction
 				("macsreducedideal",),
 			),
-			#Sum over bit axes, but leave bits chunked. Treat act axis here
-			#first. We need the chunkoffsetsteps to ensure that an upper
-			#chunk adds more value to the hist axis. So when later combining
+			#Sum over bit axes, but leave bits tiled. Treat act axis here
+			#first. We need the tileoffsetsteps to ensure that an upper
+			#tile adds more value to the hist axis. So when later combining
 			#the axes, we do not have to re-add that information.
 			(
 				dict(
 						reduceaxes=(ACT_AXIS, WEIGHT_AXIS),
-						chunksizes=(5, 7,),
+						tilesizes=(5, 7,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=(5, 7,),
+						tileoffsetsteps=(5, 7,),
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
@@ -719,7 +719,7 @@ class test_simulation(BaseTestCase):
 						(SHAPE_ENUM.ACT_BINS_ENUM, (1./5.),),
 						(SHAPE_ENUM.WEIGHT_BINS_ENUM, (1./7.),),
 						#THe offset steps cause us to get a hist axis as
-						#if there would be no chunking at all.
+						#if there would be no tiling at all.
 						(
 								SHAPE_ENUM.MAC_HIST_ENUM,
 								SHAPE_ENUM.ACT_HIST_ENUM,
@@ -731,21 +731,21 @@ class test_simulation(BaseTestCase):
 				None,
 				tuple(),
 			),
-			#Merge bit chunks. We used the offset steps to make the chunks
+			#Merge bit tiles. We used the offset steps to make the tiles
 			#remember their position within eight, so we can use same
 			#weighting. Still, we need to set the onehot flag, because
 			#the sum of how often weight values can occur is limited.
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("same", "same",),
 						positionweightsonehot=(True, True,),
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
@@ -764,26 +764,26 @@ class test_simulation(BaseTestCase):
 				),
 				(HIST_AXIS,),
 				None,
-				#Even though we chunked the act/weight axes, the result
+				#Even though we tiled the act/weight axes, the result
 				#still should be the ideal correct one now after
-				#merging chunks.
+				#merging tiles.
 				("allreducedideal",),
 			),
 		),
-		#Test chunks of size 1, which should be allowed and should change
+		#Test tiles of size 1, which should be allowed and should change
 		#nothing except adding empty hist axis
 		(
 			(
 				dict(	
 						reduceaxes=MAC_AXIS,
-						chunksizes=(1,),
+						tilesizes=(1,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -806,21 +806,21 @@ class test_simulation(BaseTestCase):
 				("nothingreducedideal",),
 			),
 		),
-		#Also test huge chunks, whose size should be limited to treating
-		#as if there would be no chunking meaning everything is added
-		#as one. But the chunk axis is still kept.
+		#Also test huge tiles, whose size should be limited to treating
+		#as if there would be no tiling meaning everything is added
+		#as one. But the tile axis is still kept.
 		(
 			(
 				dict(	
 						reduceaxes=MAC_AXIS,
-						chunksizes=(int(1e9),),
+						tilesizes=(int(1e9),),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -848,14 +848,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=2,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel="digital",
@@ -881,14 +881,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=2,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel="analog",
@@ -920,14 +920,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=4,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -957,14 +957,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=1,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -992,14 +992,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=-5,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1027,14 +1027,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=-int(1e9),
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1061,14 +1061,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=1.,
 						cliplimitfixed=None,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1096,14 +1096,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=1e9,
 						cliplimitfixed=None,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1124,21 +1124,21 @@ class test_simulation(BaseTestCase):
 				("allreducedideal",),
 			),
 		),
-		#Use cliplimitstddev, but after using residual chunks. This checks that
+		#Use cliplimitstddev, but after using residual tiles. This checks that
 		#maxhistvalue is correcty used. Also combine with using
 		#mergevalues here.
 		(
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=(5,),
+						tilesizes=(5,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1146,7 +1146,7 @@ class test_simulation(BaseTestCase):
 				),
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
-						(SHAPE_ENUM.MAC_CHUNKED_ENUM,),
+						(SHAPE_ENUM.MAC_TILED_ENUM,),
 						(SHAPE_ENUM.ACT_BINS_ENUM,),
 						(SHAPE_ENUM.WEIGHT_BINS_ENUM,),
 						(
@@ -1161,21 +1161,21 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=2.,
 						cliplimitstddev=1.,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
 						allowoptim=True,
 				),
-				#Now be left with resolved MAC chunks. Possibly unused hist
-				#entries due to residual chunks have vanished here.
+				#Now be left with resolved MAC tiles. Possibly unused hist
+				#entries due to residual tiles have vanished here.
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
 						(SHAPE_ENUM.ACT_BINS_ENUM,),
@@ -1197,14 +1197,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=3.,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1233,14 +1233,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=1.,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1266,14 +1266,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS, WEIGHT_AXIS, ACT_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=1e-9,
 						positionweights=(None, "hist", "hist"),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1295,20 +1295,20 @@ class test_simulation(BaseTestCase):
 			),
 		),
 		#Very large values are limited as well and to maxhistvalue. We check
-		#that here wiht residual chunks, where maxhistvalue is most complex.
+		#that here wiht residual tiles, where maxhistvalue is most complex.
 		#Also add mergevalues here.
 		(
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=(5,),
+						tilesizes=(5,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1316,7 +1316,7 @@ class test_simulation(BaseTestCase):
 				),
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
-						(SHAPE_ENUM.MAC_CHUNKED_ENUM,),
+						(SHAPE_ENUM.MAC_TILED_ENUM,),
 						(SHAPE_ENUM.ACT_BINS_ENUM,),
 						(SHAPE_ENUM.WEIGHT_BINS_ENUM,),
 						(
@@ -1331,21 +1331,21 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=2.,
 						cliplimitstddev=None,
 						cliplimitfixed=1e9,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
 						allowoptim=True,
 				),
-				#Now be left with resolved MAC chunks. Possibly unused hist
-				#entries due to residual chunks have vanished here.
+				#Now be left with resolved MAC tiles. Possibly unused hist
+				#entries due to residual tiles have vanished here.
 				#But the huge cliplimitfixed is limited to reduce everything into
 				#one magnitude bin.
 				(
@@ -1369,14 +1369,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=(True, True,),
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1401,14 +1401,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(MAC_AXIS+1,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS-1,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1436,14 +1436,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(HIST_AXIS,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=("hist",),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						#Make sure to now merge into the axis which was
 						#the one-hot before.
 						histaxis=HIST_AXIS-1,
@@ -1482,21 +1482,21 @@ class test_simulation(BaseTestCase):
 			),
 		),
 		#A full run, where we first gather in the analog domain all
-		#weight/act positions and chunked MACs. These results go thru an
-		#ADC. The ADC words of different chunks are then combined in
+		#weight/act positions and tiled MACs. These results go thru an
+		#ADC. The ADC words of different tiles are then combined in
 		#the digital domain.
 		(
 			(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=(5,),
+						tilesizes=(5,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -1504,7 +1504,7 @@ class test_simulation(BaseTestCase):
 				),
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
-						(SHAPE_ENUM.MAC_CHUNKED_ENUM,),
+						(SHAPE_ENUM.MAC_TILED_ENUM,),
 						(SHAPE_ENUM.ACT_BINS_ENUM,),
 						(SHAPE_ENUM.WEIGHT_BINS_ENUM,),
 						(
@@ -1519,14 +1519,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=2,
 						cliplimitstddev=1.,
 						cliplimitfixed=None,
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel="analog",
@@ -1534,7 +1534,7 @@ class test_simulation(BaseTestCase):
 				),
 				(
 						(SHAPE_ENUM.STOCH_ENUM,),
-						(SHAPE_ENUM.MAC_CHUNKED_ENUM,),
+						(SHAPE_ENUM.MAC_TILED_ENUM,),
 						(
 								5,
 								SHAPE_ENUM.ACT_HIST_ENUM,
@@ -1550,14 +1550,14 @@ class test_simulation(BaseTestCase):
 			(
 				dict(
 						reduceaxes=(-2,),
-						chunksizes=None,
+						tilesizes=None,
 						mergevalues=-2,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel="digital",
@@ -1824,7 +1824,7 @@ class test_simulation(BaseTestCase):
 	Combine different values and also test very small counts, which makes
 	it easier to track errors down."""
 	
-	#Number of macs matching chunksize or not
+	#Number of macs matching tilesize or not
 	NUMMACS = (
 			16,
 			8,
@@ -1957,7 +1957,7 @@ class test_simulation(BaseTestCase):
 					reshaped = reshapethis
 					
 			#A smaller array can be padded to a larger
-			#one. This is needed, if residual chunks
+			#one. This is needed, if residual tiles
 			#have been in use.
 			if (reshaped is not None) and (unreshaped is not None):
 				padded, unpadded = padToEqualShape(
@@ -2190,7 +2190,7 @@ class test_simulation(BaseTestCase):
 			#The fill other dict entries
 			actbincount = histlenToBincount(histlen=levels["activationlevels"])
 			weightbincount = histlenToBincount(histlen=levels["weightlevels"])
-			nummacchunks = math.ceil(nummacs / 5)
+			nummactiles = math.ceil(nummacs / 5)
 			shapelookup = {
 					#Length of statistics axis, which is 1 in stochastic
 					#or for some special fields
@@ -2212,9 +2212,9 @@ class test_simulation(BaseTestCase):
 					#Number of macs again, but only in non-stochastics.
 					#Otherwise this is 1.
 					SHAPE_ENUM.MAC_IN_STAT_ENUM : (((not isstochastic) and nummacs) or 1),
-					#The chunk count yielded from creating fractional
-					#number of chunks along MAC aixs in experiment
-					SHAPE_ENUM.MAC_CHUNKED_ENUM : nummacchunks,
+					#The tile count yielded from creating fractional
+					#number of tiles along MAC aixs in experiment
+					SHAPE_ENUM.MAC_TILED_ENUM : nummactiles,
 					#Turns a hist to bin counts. Special enum
 					SHAPE_ENUM.HIST_TO_BINS_ENUM : lambda e: histlenToBincount(histlen=e),
 					#Rounds a number
@@ -2287,8 +2287,8 @@ class test_simulation(BaseTestCase):
 
 							expandedentry *= shapecomponent
 					#Back to int domain. Round up, because the
-					#general philosophy is to create more bins and chunks
-					#than needed, if chunksccounts are residual.
+					#general philosophy is to create more bins and tiles
+					#than needed, if tilesccounts are residual.
 					#This also works nice, as float precision usually
 					#rounds down and ceil gets us to the correct value
 					#then.
@@ -2566,13 +2566,13 @@ class test_simulation(BaseTestCase):
 		#Assert the maximum histogram values by taking stochastic result,
 		#where the histogram shape has already been asserted, and by
 		#getting full scale from there.
-		#As soon as we have residual chunking or cliplimitstddev or a
+		#As soon as we have residual tiling or cliplimitstddev or a
 		#cliplimitfixed, the simply computed
-		#expectation is wrong, because the residual chunk masks some
+		#expectation is wrong, because the residual tile masks some
 		#histogram values or because the cliplimitstddev introduces a factor
 		#we dont know. For such cases, we also look at the return
 		#values of the simulation with fullscale operands.
-		chunksizecliplimitstddevcliplimitfixedintroduced = False
+		tilesizecliplimitstddevcliplimitfixedintroduced = False
 		for runidx, resultobjhistaxgroup in enumerate(zip(retstochastic["results"], histaxesfromgroups, groups)):
 			resultobj, histaxes, group = resultobjhistaxgroup
 			expectedmaxhistvalue = np.ones(shape=resultobj[0:1].shape, dtype="int")
@@ -2586,7 +2586,7 @@ class test_simulation(BaseTestCase):
 						axis=histax,
 				)
 				np.multiply(expectedmaxhistvalue, histlen, out=expectedmaxhistvalue)
-			chunksizecliplimitstddevcliplimitfixedintroduced = chunksizecliplimitstddevcliplimitfixedintroduced or (group["chunksizes"] is not None) or (group["cliplimitstddev"] is not None) or (group["cliplimitfixed"] is not None)
+			tilesizecliplimitstddevcliplimitfixedintroduced = tilesizecliplimitstddevcliplimitfixedintroduced or (group["tilesizes"] is not None) or (group["cliplimitstddev"] is not None) or (group["cliplimitfixed"] is not None)
 			#Now that the expected value is known, iterate over made
 			#simulations and assert maxhistvalue in each one.
 			#We here note for each run which fullscale run has the
@@ -2607,7 +2607,7 @@ class test_simulation(BaseTestCase):
 						runidx=runidx,	
 				):
 					#Assert on hand-crafted expected value
-					if not chunksizecliplimitstddevcliplimitfixedintroduced:
+					if not tilesizecliplimitstddevcliplimitfixedintroduced:
 						assert maxhistvalue.shape == \
 							expectedmaxhistvalue.shape, \
 							"Shape of maxhistvalue not as predicted."
@@ -3136,14 +3136,14 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 	REF_GROUPS=(
 			dict(
 					reduceaxes=(MAC_AXIS,),
-					chunksizes=(8,),
+					tilesizes=(8,),
 					mergevalues=None,
 					cliplimitstddev=None,
 					cliplimitfixed=None,
 					positionweights=None,
 					positionweightsonehot=None,
 					disablereducecarries=None,
-					chunkoffsetsteps=None,
+					tileoffsetsteps=None,
 					histaxis=HIST_AXIS,
 					docreatehistaxis=True,
 					mergeeffortmodel=None,
@@ -3151,14 +3151,14 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 			),
 			dict(
 					reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-					chunksizes=None,
+					tilesizes=None,
 					mergevalues=None,
 					cliplimitstddev=None,
 					cliplimitfixed=None,
 					positionweights=("hist", "hist",),
 					positionweightsonehot=None,
 					disablereducecarries=None,
-					chunkoffsetsteps=None,
+					tileoffsetsteps=None,
 					histaxis=HIST_AXIS,
 					docreatehistaxis=False,
 					mergeeffortmodel="analog",
@@ -3166,14 +3166,14 @@ class test_unquantQuantComparisonPlot(BaseTestCase):
 			),
 			dict(
 					reduceaxes=(-2,),
-					chunksizes=None,
+					tilesizes=None,
 					mergevalues=None,
 					cliplimitstddev=None,
 					cliplimitfixed=None,
 					positionweights=None,
 					positionweightsonehot=None,
 					disablereducecarries=None,
-					chunkoffsetsteps=None,
+					tileoffsetsteps=None,
 					histaxis=HIST_AXIS,
 					docreatehistaxis=False,
 					mergeeffortmodel=None,
@@ -3546,14 +3546,14 @@ class test_misc(BaseTestCase):
 		COMMON_GROUPS=(
 				dict(
 						reduceaxes=(MAC_AXIS,),
-						chunksizes=(8,),
+						tilesizes=(8,),
 						mergevalues=None,
 						cliplimitstddev=None,
 						cliplimitfixed=None,
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=True,
 						mergeeffortmodel=None,
@@ -3561,7 +3561,7 @@ class test_misc(BaseTestCase):
 				),
 				dict(
 						reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-						chunksizes=None,
+						tilesizes=None,
 						#mergevalues=2,
 						mergevalues=None,
 						#cliplimitstddev=2,
@@ -3570,7 +3570,7 @@ class test_misc(BaseTestCase):
 						positionweights=("hist", "hist",),
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel="analog",
@@ -3578,7 +3578,7 @@ class test_misc(BaseTestCase):
 				),
 				dict(
 						reduceaxes=(-2,),
-						chunksizes=None,
+						tilesizes=None,
 						#mergevalues=4,
 						mergevalues=None,
 						cliplimitstddev=3,
@@ -3588,7 +3588,7 @@ class test_misc(BaseTestCase):
 						positionweights=None,
 						positionweightsonehot=None,
 						disablereducecarries=None,
-						chunkoffsetsteps=None,
+						tileoffsetsteps=None,
 						histaxis=HIST_AXIS,
 						docreatehistaxis=False,
 						mergeeffortmodel=None,
@@ -3693,7 +3693,7 @@ class test_misc(BaseTestCase):
 		
 		#Results created in two blocks
 		jsonpathscliced = (tmp_json / "psumsim_result_test_sliced.json")
-		#And in one chunk
+		#And in one tile
 		jsonpathfull = (tmp_json / "psumsim_result_test_full.json")
 		#And path for simulating single runs
 		jsonpathspecific = (tmp_json / "psumsim_result_test_specific.json")
@@ -3736,7 +3736,7 @@ class test_misc(BaseTestCase):
 		)
 		jsonfp.close()
 		
-		#Create results in one big chunk. Try using progbar and aggressive
+		#Create results in one big tile. Try using progbar and aggressive
 		#running here.
 		jsonfp = jsonpathfull.open("w")
 		runAllExperiments(
@@ -3813,7 +3813,7 @@ class test_misc(BaseTestCase):
 		if not skipthisruncase:
 			rundesc = RunDescription(
 					nummacs=4,
-					chunksize=3,
+					tilesize=3,
 					activationlevels=10,
 					weightlevels=9,
 					intermediatelevels=7,
@@ -3832,8 +3832,8 @@ class test_misc(BaseTestCase):
 			rundesc = RunDescription(
 					#Is always turned to int
 					nummacs=4,
-					#Chunksize could be None, not just a number as above
-					chunksize=5,
+					#Tilesize could be None, not just a number as above
+					tilesize=5,
 					#Levelcount can be a number or None. Skip this run
 					#by specifying weight precision larger than activation
 					activationlevels=10,

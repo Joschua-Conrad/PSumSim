@@ -3,10 +3,10 @@
 Use functions defined here for exploring an MVM desing space.
 
 The application first reduces along `ACT_AXIS`, `WEIGHT_AXIS` and
-lastly along `MAC_AXIS`, but this one is chunked into tiles fitting on MVM
+lastly along `MAC_AXIS`, but this one is tiled into tiles fitting on MVM
 hardware. The results are clipped and *intermediate quantization* is applied
 (like by an ADC in an in-memory compute MVM [IMC]_). After
-combining the results of the chunks, the MVM algorithm applies a
+combining the results of the tiles, the MVM algorithm applies a
 *final quantization*.
 
 When wanting to run an own design-space exploration, one probably needs to
@@ -31,9 +31,9 @@ NUMMACS = [64, 128,]
 """`list` of `int`
 *nummacs* to explore."""
 
-CHUNKSIZES = [None, 10, 32, 64, 100, 128,]
+TILESIZES = [None, 10, 32, 64, 100, 128,]
 """`list` of (`int`, `None`)
-Chunksizes to explore. `None` uses no chunking and only *final quantization*
+Tilesizes to explore. `None` uses no tiling and only *final quantization*
 is applied."""
 
 LEVELS = [None, 1, 3, 7, 15, 31,]
@@ -62,7 +62,7 @@ RUN_DESCRIPTION_CORE_CLS = collections.namedtuple(
 		field_names=(
 				#Arguments needed to call simulateMvm
 				"nummacs",
-				"chunksize",
+				"tilesize",
 				"activationlevels",
 				"weightlevels",
 				"intermediatelevels",
@@ -91,8 +91,8 @@ all the many ones exploring design space.
 nummacs
 	Drawn from `NUMMACS` and forwarded to `simulateMvm`.
 	
-chunksize
-	Drawn from `CHUNKSIZES`. If `None`, there is no chunking of `MAC_AXIS` and
+tilesize
+	Drawn from `TILESIZES`. If `None`, there is no tiling of `MAC_AXIS` and
 	only final quantization.
 
 activationlevels
@@ -103,7 +103,7 @@ weightlevels
 	
 intermediatelevels
 	Drawn from `LEVELS` and forwarded to `simulateMvm` for parameterizing
-	intermediate quantization of chunked results. Note that this is a
+	intermediate quantization of tiled results. Note that this is a
 	*histlen* (see `dataformat`). Is forwarded with a negative sign.
 	
 finallevels
@@ -113,7 +113,7 @@ finallevels
 	
 intermediatecliplimit
 	Drawn from `CLIP_LIMITS`. Forwarded to `simulateMvm` for parameterizing
-	intermediate quantization of chunked results.
+	intermediate quantization of tiled results.
 	
 finalcliplimit
 	Drawn from `CLIP_LIMITS` and forwarded to `simulateMvm` for parameterizing
@@ -135,7 +135,7 @@ issqnrreference
 skipthisrun
 	`bool`. Is set, if the specified experiment shall be skipped. There are
 	several reasons coded in `RunDescription.__new__`. It e.g. does not
-	make sense to have a *chunksize*, if there is no intermediate quantization.
+	make sense to have a *tilesize*, if there is no intermediate quantization.
 	The number of weight levels cannot be higher than number of activation levels
 	to prevent redundant cases. Final or intermediate clipping can only work,
 	if the corresponding quantization is activated, too.
@@ -155,7 +155,7 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			r"wl_(?P<weightlevels>[^_]+)_"
 			r"ic_(?P<intermediatecliplimit>[^_]+)_"
 			r"fc_(?P<finalcliplimit>[^_]+)_"
-			r"cs_(?P<chunksize>[^_]+)_"
+			r"cs_(?P<tilesize>[^_]+)_"
 			r"fl_(?P<finallevels>[^_]+)_"
 			r"il_(?P<intermediatelevels>[^_]+)"
 	))
@@ -196,8 +196,8 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 		return val
 	
 	@classmethod
-	def levelChunksizeFilter(cls, val):
-		"""Normalize a `CHUNKSIZES` or `LEVELS` type.
+	def levelTilesizeFilter(cls, val):
+		"""Normalize a `TILESIZES` or `LEVELS` type.
 		
 		`None` is kept, even if given as `str`. Everything else is converted to
 		`int`.
@@ -223,7 +223,7 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 	def __new__(
 			cls,
 			nummacs,
-			chunksize,
+			tilesize,
 			activationlevels,
 			weightlevels,
 			intermediatelevels,
@@ -255,7 +255,7 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			----------------
 			Values set as fields of `RUN_DESCRIPTION_CORE_CLS`. Fields
 			*sqnrreference*, *issqnrreference* and *skipthisrun* are set
-			automatically. `cliplimitFilter` and `levelChunksizeFilter` are
+			automatically. `cliplimitFilter` and `levelTilesizeFilter` are
 			used for type normalization.
 	
 			Raises
@@ -272,11 +272,11 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 		
 			#Normalize types
 			nummacs = int(nummacs)
-			chunksize = cls.levelChunksizeFilter(chunksize)
-			activationlevels = cls.levelChunksizeFilter(activationlevels)
-			weightlevels = cls.levelChunksizeFilter(weightlevels)
-			intermediatelevels = cls.levelChunksizeFilter(intermediatelevels)
-			finallevels = cls.levelChunksizeFilter(finallevels)
+			tilesize = cls.levelTilesizeFilter(tilesize)
+			activationlevels = cls.levelTilesizeFilter(activationlevels)
+			weightlevels = cls.levelTilesizeFilter(weightlevels)
+			intermediatelevels = cls.levelTilesizeFilter(intermediatelevels)
+			finallevels = cls.levelTilesizeFilter(finallevels)
 			initialcliplimit = cls.cliplimitFilter(initialcliplimit)
 			intermediatecliplimit = cls.cliplimitFilter(intermediatecliplimit)
 			finalcliplimit = cls.cliplimitFilter(finalcliplimit)
@@ -284,9 +284,9 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 		
 			#Decide when a run makes no sense
 			skipthisrun = False
-			#If a single chunk includes all macs. That shall be done with
-			#chunksize None
-			skipthisrun = skipthisrun or ((chunksize is not None) and (chunksize >= nummacs))
+			#If a single tile includes all macs. That shall be done with
+			#tilesize None
+			skipthisrun = skipthisrun or ((tilesize is not None) and (tilesize >= nummacs))
 			#If weight or activation bitwidth is None, they have to be quantized
 			skipthisrun = skipthisrun or ((activationlevels is None) or (weightlevels is None))
 			#If weight bitwidth is larger than activation bitwidth
@@ -300,13 +300,13 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			#No need to test with whether stimulus is quantized, because this
 			#is always quantized.
 			skipthisrun = skipthisrun or ((intermediatelevels is not None) and (finallevels is None))
-			#If we have no chunksize, but would apply intermediate quantization,
-			#which is the most advanced one. When having no overchunkaxis, we
+			#If we have no tilesize, but would apply intermediate quantization,
+			#which is the most advanced one. When having no overtileaxis, we
 			#do not sum over that and there is one opportunity less to quantize.
-			skipthisrun = skipthisrun or ((intermediatelevels is not None) and (chunksize is None))
+			skipthisrun = skipthisrun or ((intermediatelevels is not None) and (tilesize is None))
 			#But if we would apply no intermediate quantization, it does not
-			#make any sense to apply chunksize
-			skipthisrun = skipthisrun or ((intermediatelevels is None) and (chunksize is not None))
+			#make any sense to apply tilesize
+			skipthisrun = skipthisrun or ((intermediatelevels is None) and (tilesize is not None))
 			#Also check that cliplimit is only applied on intermiediate, if
 			#also applied on output. And additionally, that the output only
 			#applies it if the input operands also have it.
@@ -338,7 +338,7 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 			#easier
 			givenargs = dict(
 					nummacs=nummacs,
-					chunksize=chunksize,
+					tilesize=tilesize,
 					activationlevels=activationlevels,
 					weightlevels=weightlevels,
 					intermediatelevels=intermediatelevels,
@@ -361,8 +361,8 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 					sqnrreferenceargs["intermediatelevels"] = None
 					sqnrreferenceargs["intermediatecliplimit"] = None
 					#When removing interm quantization, we also have to remove
-					#chunksize. The axis then does not make any difference anymore.
-					sqnrreferenceargs["chunksize"] = None
+					#tilesize. The axis then does not make any difference anymore.
+					sqnrreferenceargs["tilesize"] = None
 				elif sqnrreferenceargs["finallevels"] is not None:
 					sqnrreferenceargs["finallevels"] = None
 					sqnrreferenceargs["finalcliplimit"] = None
@@ -492,7 +492,7 @@ class RunDescription(RUN_DESCRIPTION_CORE_CLS):
 				f"wl_{self.weightlevels}_"
 				f"ic_{intermediatecliplimit}_"
 				f"fc_{finalcliplimit}_"
-				f"cs_{self.chunksize}_"
+				f"cs_{self.tilesize}_"
 				f"fl_{self.finallevels}_"
 				f"il_{self.intermediatelevels}"
 		)
@@ -564,7 +564,7 @@ def runIter():
 			LEVELS,
 			CLIP_LIMITS,
 			CLIP_LIMITS,
-			CHUNKSIZES,
+			TILESIZES,
 			LEVELS,
 			LEVELS,
 	)
@@ -572,7 +572,7 @@ def runIter():
 	for runcase in fulliter:
 		
 		#The experiment order is important. Inner most we must find first
-		# added final and inter quantization and chunksize. That way, we generate
+		# added final and inter quantization and tilesize. That way, we generate
 		#needed references first and keep them then. We also try to
 		#pass options influencing runtime somewhere inside, as that makes
 		#progress estimation easier.
@@ -585,13 +585,13 @@ def runIter():
 		weightlevels, \
 		intermediatecliplimit, \
 		finalcliplimit, \
-		chunksize, \
+		tilesize, \
 		finallevels, \
 		intermediatelevels = runcase
 				
 		rundescription = RunDescription(
 				nummacs=nummacs,
-				chunksize=chunksize,
+				tilesize=tilesize,
 				activationlevels=activationlevels,
 				weightlevels=weightlevels,
 				intermediatelevels=intermediatelevels,
@@ -629,7 +629,7 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 	  SQNR.
 	
 	Clipping criterions *"occ"* are looked-up using `optimumClippingCriterion`.
-	If an experiment has no *chunksize*, there is only final quantization.
+	If an experiment has no *tilesize*, there is only final quantization.
 
 	Parameters
 	----------
@@ -645,7 +645,7 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 		is compatible with `equalizeQuantizedUnquantized`. Also the key
 		*fewmergevalues* must be present. This is allowed to have only two
 		values, as there are only two calls to `reduceSum` for experiments
-		without a chunksize. A key *mergevaluess* is set from a padded
+		without a tilesize. A key *mergevaluess* is set from a padded
 		version to again be compatible with `equalizeQuantizedUnquantized`.
 		
 		.. note::
@@ -727,8 +727,8 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 			positionweightsonehot=None,
 			#Only needed if weight and act axis is first reduced
 			disablereducecarries=None,
-			#Is only needed, if a hist axis is chunked
-			chunkoffsetsteps=None,
+			#Is only needed, if a hist axis is tiled
+			tileoffsetsteps=None,
 			#Yes, we want fast code
 			allowoptim=True,
 	)
@@ -737,7 +737,7 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 	overmacsgroup = dict(
 			**commongroup,
 			reduceaxes=(MAC_AXIS,),
-			chunksizes=(rundescription.chunksize,),
+			tilesizes=(rundescription.tilesize,),
 			mergevalues=None,
 			cliplimitstddev=None,
 			positionweights=None,
@@ -748,7 +748,7 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 	overweightsactgroup = dict(
 			**commongroup,
 			reduceaxes=(WEIGHT_AXIS, ACT_AXIS),
-			chunksizes=None,
+			tilesizes=None,
 			mergevalues=intermediatelevels,
 			cliplimitstddev=intermediatecliplimit,
 			positionweights=("hist", "hist",),
@@ -756,10 +756,10 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 			docreatehistaxis=False,
 			mergeeffortmodel="analog",
 	)
-	overchunksgroup = dict(
+	overtilesgroup = dict(
 			**commongroup,
 			reduceaxes=(-2,),
-			chunksizes=None,
+			tilesizes=None,
 			mergevalues=finallevels,
 			cliplimitstddev=finalcliplimit,
 			positionweights=None,
@@ -768,20 +768,20 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 			mergeeffortmodel=None,
 	)
 	
-	#If the chunksize is None, remove the operation adding over chunks.
+	#If the tilesize is None, remove the operation adding over tiles.
 	#That also removes one quantization. Then try to keep the final
 	#quantization opportunity including its effort.
-	if rundescription.chunksize is None:
-		overweightsactgroup["mergevalues"] = overchunksgroup["mergevalues"]
-		overweightsactgroup["cliplimitstddev"] = overchunksgroup["cliplimitstddev"]
-		overweightsactgroup["mergeeffortmodel"] = overchunksgroup["mergeeffortmodel"]
-		overchunksgroup = None
+	if rundescription.tilesize is None:
+		overweightsactgroup["mergevalues"] = overtilesgroup["mergevalues"]
+		overweightsactgroup["cliplimitstddev"] = overtilesgroup["cliplimitstddev"]
+		overweightsactgroup["mergeeffortmodel"] = overtilesgroup["mergeeffortmodel"]
+		overtilesgroup = None
 		
 	#Assemble the groups
-	if rundescription.chunksize is None:
+	if rundescription.tilesize is None:
 		groups = (overmacsgroup, overweightsactgroup,)
 	else:
-		groups = (overmacsgroup, overweightsactgroup, overchunksgroup,)
+		groups = (overmacsgroup, overweightsactgroup, overtilesgroup,)
 		
 	#At least there is no need to set cliplimitfixed to equalize in
 	#comparison to sqnrref using applyCliplimitStddevAsFixedFrom. Because
@@ -858,19 +858,19 @@ def doSingleRun(rundescription, sqnrreferencereturn):
 		sqnrrefresults = (sqnrrefmaxhistvalues,)
 		sqnrreferencereturn["maxhistvalues"] = sqnrrefresults
 		
-	#Mergevalues always exist, but if we have chunks and the previous one did
+	#Mergevalues always exist, but if we have tiles and the previous one did
 	#not, we need to add a dummy mergevalues for the intermediate quantization
 	if "mergevaluess" not in sqnrreferencereturn:
 		sqnrmergevaluess = sqnrreferencereturn["fewmergevaluess"]
-		if (rundescription.chunksize is not None) and (rundescription.sqnrreference.chunksize is None):
+		if (rundescription.tilesize is not None) and (rundescription.sqnrreference.tilesize is None):
 			if len(sqnrmergevaluess) != 2:
 				raise RuntimeError(
-						f"When having no chunksize in a reference, two elems "
+						f"When having no tilesize in a reference, two elems "
 						f"are expected in mergevaluess, but got "
 						f"{len(sqnrmergevaluess)}.",
 						sqnrmergevaluess,
 				)
-			#Move None in for the intermediate stage. A run without chunksize
+			#Move None in for the intermediate stage. A run without tilesize
 			#has only final quant.
 			sqnrmergevaluess = (sqnrmergevaluess[0], None, sqnrmergevaluess[1])
 		sqnrreferencereturn["mergevaluess"] = sqnrmergevaluess
@@ -946,7 +946,7 @@ def singleRunWorker(rundescription, sqnrreferencereturn):
 			
 		fewmergevaluess
 			`list` of `numpy.ndarray`. Result from `simulateMvm`, which can
-			have two or three entries depending on whether *chunksize* was
+			have two or three entries depending on whether *tilesize* was
 			present or not.
 			
 		finalresult
@@ -977,7 +977,7 @@ def singleRunWorker(rundescription, sqnrreferencereturn):
 	finalmaxhistvalue = retstochastic["maxhistvalues"][-1]
 	#We need mergevaluess and last results for equalizeQuantizedUnquantized
 	#mergevaluess is already float. We give them another name, because we
-	#maybe have only 2 elems here, if not chunksize was given.
+	#maybe have only 2 elems here, if not tilesize was given.
 	fewmergevaluess = retstochastic["mergevaluess"]
 	#We need only the last results, but have to turn them into some
 	#picklable dtype
@@ -1024,7 +1024,7 @@ def runAllExperiments(
 	Parameters
 	----------
 	runreduced : `bool`
-		If set, `RANDOM_BEHAVES`, `CLIP_LIMITS`, `NUMMACS`, `CHUNKSIZES` and
+		If set, `RANDOM_BEHAVES`, `CLIP_LIMITS`, `NUMMACS`, `TILESIZES` and
 		`LEVELS` are reduced to `None` and two normal values. Experiments
 		finish rapidly then, which is nice for debugging. The parameter `list`
 		objects are restored afterwards.
@@ -1095,18 +1095,18 @@ def runAllExperiments(
 	#less values
 	if runreduced:
 		nummacs = tuple(NUMMACS)
-		chunksizes = tuple(CHUNKSIZES)
+		tilesizes = tuple(TILESIZES)
 		levels = tuple(LEVELS)
 		randombehaves = tuple(RANDOM_BEHAVES)
 		cliplimits = tuple(CLIP_LIMITS)
 		NUMMACS.clear()
-		CHUNKSIZES.clear()
+		TILESIZES.clear()
 		LEVELS.clear()
 		RANDOM_BEHAVES.clear()
 		CLIP_LIMITS.clear()
 		NUMMACS.extend(nummacs[:2])
 		#Include None and two numeric values here
-		CHUNKSIZES.extend(chunksizes[:3])
+		TILESIZES.extend(tilesizes[:3])
 		LEVELS.extend(levels[:3])
 		RANDOM_BEHAVES.extend(randombehaves[:2])
 		CLIP_LIMITS.extend(cliplimits[:2])
@@ -1218,8 +1218,8 @@ def runAllExperiments(
 	#quantization is re-generated. These elements are on the outside
 	#of the iterator, so we can forget all old references then.
 	#A reference mostly has a differen quantization in intermediat
-	#and final stage. That comes with different cliplimit. The chunksize
-	#can also change to not have chunks but no intern quantization.
+	#and final stage. That comes with different cliplimit. The tilesize
+	#can also change to not have tiles but no intern quantization.
 	lastrundescription = None
 	forgetrefkeys = (
 			"randombehave",
@@ -1460,7 +1460,7 @@ def runAllExperiments(
 								#ADC values are derived
 								cliplimitfixeds=thisresult["cliplimitfixeds"],
 								#Number of ADC levels. Use the possibly shortter
-								#list representing only two runs in an unchunked
+								#list representing only two runs in an untiled
 								#experiment.
 								fewmergevaluess=thisresult["fewmergevaluess"],
 						)
@@ -1502,12 +1502,12 @@ def runAllExperiments(
 	#Resotre class attributes if they were changed
 	if runreduced:
 		NUMMACS.clear()
-		CHUNKSIZES.clear()
+		TILESIZES.clear()
 		LEVELS.clear()
 		RANDOM_BEHAVES.clear()
 		CLIP_LIMITS.clear()
 		NUMMACS.extend(nummacs)
-		CHUNKSIZES.extend(chunksizes)
+		TILESIZES.extend(tilesizes)
 		LEVELS.extend(levels)
 		RANDOM_BEHAVES.extend(randombehaves)
 		CLIP_LIMITS.extend(cliplimits)
@@ -1532,7 +1532,7 @@ def getArgParser():
 			"to a JSON file. See also `runAllExperiments`.",
 			epilog="Written by joschua.conrad@uni-ulm.de at Ulm University, "
 			"Institute of Microelectronics. Please also see the documentation "
-			"for advanced usage, acknowledgement and license.",
+			"for advanced usage, citation, acknowledgement and license.",
 	)
 	
 	thehelp="""Names of runs to conduct as found in results file.

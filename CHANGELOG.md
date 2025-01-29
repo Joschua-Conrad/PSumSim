@@ -1,9 +1,16 @@
 # Changelog
-In the version number *X.Y.Z*, Z is incremented whenever tests pass. *Y* is
-incremented for each new public merge. *X* is incremented for changes, which
-will make old configs or model files work no more.
+In the version number *X.Y.Z*, *Z* is incremented for small changes.
+*Y* is changed if compatibility and interface changed. *X* is only
+changed for major releases. In general, the version number is only
+updated, if docs build and tests pass. The version number of the upcoming
+release is always also listed here and changes for this upcoming version
+are collected.
 
-## 0.0.4
+## 0.1.1
+
+## 0.1.0
+- Replaced term *chunk* with *tile*, as that is what the literature uses
+  as well. Many function names changed.
 
 ## 0.0.3
 - Fixed bug in {any}`sinusoidal_gen._ppf`, which lead to deviation between

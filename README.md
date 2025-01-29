@@ -17,7 +17,7 @@ the published paper:
 
 ```bibtex
 @inproceedings{Conrad_PSumSim_2025,
-	author = {Conrad, Joschua and Wilhelmstätter, Simon and Mandry, Holger and Asthana, Rohan and Belagiannis, Vasileios and Ortmanns, Maurits},
+	author = {Conrad, Joschua and Wilhelmstätter, Simon and Mandry, Holger and Kässer, Paul and Abdelaal, Ahmed and Asthana, Rohan and Belagiannis, Vasileios and Ortmanns, Maurits},
 	title = {PSumSim: A Simulator for Partial-Sum Quantization in Analog Matrix-Vector Multipliers},
 	booktitle = {2025 IEEE International Symposium on Circuits and Systems {(ISCAS)}},
 	eventtitle = {2025 IEEE International Symposium on Circuits and Systems {(ISCAS)}},
@@ -56,13 +56,13 @@ the published paper:
 	  and bitwidth ({std:ref}`quantization`)
 	  
 	- Check the effects of the algorithm being too large for the hardware
-	  ({std:ref}`chunks`)
+	  ({std:ref}`tiles`)
   
 - Explore the design-space of a MVM application regarding algorithm and
   hardware size and SQNR with a highly parallel simulator
   ({any}`runAllExperiments`)
   
-- Evaluate the oprimum clipping criterion (OCC) [OCC]_
+- Evaluate the oprimum clipping criterion (OCC)
   ({any}`optimumClippingCriterion`)
 
 ## TL;DR

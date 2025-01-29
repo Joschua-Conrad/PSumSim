@@ -15,8 +15,8 @@ def probabilisticAdder(
 		positionweights,
 		positionweightsonehot,
 		disablereducecarry,
-		chunkoffsets,
-		overchunkaxis,
+		tileoffsets,
+		overtileaxis,
 		dostatisticdummy,
 		allowoptim,
 ):
@@ -88,32 +88,32 @@ def probabilisticAdder(
 		`WEIGHT_AXIS` or when expecting that of all combined histograms,
 		only one value in reality will be set.
 	
-	chunkoffsets : `numpy.ndarray`
-		Must be as long as the *overchunkaxis* dimension.
-		See `chunks`. In principle, all axes besides *histaxis* and *reduceaxis*
+	tileoffsets : `numpy.ndarray`
+		Must be as long as the *overtileaxis* dimension.
+		See `tiles`. In principle, all axes besides *histaxis* and *reduceaxis*
 		are treated in parallel and are kept like `probabilisticAdder` would
 		have been called independently along them. But along one axis, one
 		can add a rising offset to *positionweights*. In the end, we iterate
-		over chunks and their offsets and over *reduceaxis* and over old
+		over tiles and their offsets and over *reduceaxis* and over old
 		histogram values and if the bin is set, we add
-		:math:`\text{histvalue} \times (\text{positionweight} + \text{chunkoffset})`.
-		The *chunkoffsets* are thereby usefule when having an axis like
-		`ACT_AXIS` and chunking it. If we originally had 5 levels with
-		*positionweights* *[-2, -1, 0, +1, +2]* and we chunk that into two
-		chunks, we by default would get two chunks of length 3 with
-		*positionweights* *[-1, 0, +1]*. Reducing the chunks afterwards simply
-		gives wrong results. But we can use chunkoffsets *[-1, +2]* to get
-		a sum of *positionweights* and *chunkoffsets* resulting into
-		*[-2, -1, 0]* for first chunk and *[+1, +2, +3]* for second chunk.
-		Now, each element in each chunk gets a correct weight. The uppermost
-		weight *+3* is unsued, because it sits in a *residual chunk*
-		(see `chunks`).
+		:math:`\text{histvalue} \times (\text{positionweight} + \text{tileoffset})`.
+		The *tileoffsets* are thereby usefule when having an axis like
+		`ACT_AXIS` and tiling it. If we originally had 5 levels with
+		*positionweights* *[-2, -1, 0, +1, +2]* and we tile that into two
+		tiles, we by default would get two tiles of length 3 with
+		*positionweights* *[-1, 0, +1]*. Reducing the tiles afterwards simply
+		gives wrong results. But we can use tileoffsets *[-1, +2]* to get
+		a sum of *positionweights* and *tileoffsets* resulting into
+		*[-2, -1, 0]* for first tile and *[+1, +2, +3]* for second tile.
+		Now, each element in each tile gets a correct weight. The uppermost
+		weight *+3* is unsued, because it sits in a *residual tile*
+		(see `tiles`).
 		
-		Just use some `numpy.zeros` here, except when having used chunking on
+		Just use some `numpy.zeros` here, except when having used tiling on
 		an axis, which needs non-uniform *positionweights*.
 	
-	overchunkaxis : `int`
-		The axis over which chunks are given. Add a length-1 dim if needed.
+	overtileaxis : `int`
+		The axis over which tiles are given. Add a length-1 dim if needed.
 		
 	dostatisticdummy : `bool`
 		See `statstoc`. Note that this function cannot run *dostatistic*
@@ -124,20 +124,20 @@ def probabilisticAdder(
 		results from a binomial distribution and by directly summing-up
 		probabilities and not histograms if *disablereducecarry* is set.
 		Thereby, no error is made. Unset this only for debugging. In that case,
-		the result is always created by iterating over chunks, *reduceaxis*
+		the result is always created by iterating over tiles, *reduceaxis*
 		and over *histaxis*, which simply takes time.
 
 	Raises
 	------
 	`IndexError`
-		If *reduceaxis*, *histaxis* and *overchunkaxis* are not three different
+		If *reduceaxis*, *histaxis* and *overtileaxis* are not three different
 		values.
 		
 	`TypeError`
-		If *positionweights* or *chunkoffsets* are not of some `int` dtype.
+		If *positionweights* or *tileoffsets* are not of some `int` dtype.
 		
 	`ValueError`
-		If *chunkoffsets* of *positionweights* have a bad shape.
+		If *tileoffsets* of *positionweights* have a bad shape.
 		
 	`RuntimeError`
 		If the new *histlen* is chosen bad, because result bins get shifted
@@ -158,7 +158,7 @@ def probabilisticAdder(
 	#Make axes indices positive and expect a single value
 	reduceaxis, = normalizeAxes(axes=reduceaxis, referencendim=tosum.ndim)
 	histaxis, = normalizeAxes(axes=histaxis, referencendim=tosum.ndim)
-	overchunkaxis, = normalizeAxes(axes=overchunkaxis, referencendim=tosum.ndim)
+	overtileaxis, = normalizeAxes(axes=overtileaxis, referencendim=tosum.ndim)
 	
 	if reduceaxis == histaxis:
 		raise IndexError(
@@ -168,19 +168,19 @@ def probabilisticAdder(
 				histaxis,
 		)
 		
-	if reduceaxis == overchunkaxis:
+	if reduceaxis == overtileaxis:
 		raise IndexError(
-				f"Reduce and overchunk axis need to be different, but are "
-				f"{reduceaxis} and {overchunkaxis}.",
+				f"Reduce and overtile axis need to be different, but are "
+				f"{reduceaxis} and {overtileaxis}.",
 				reduceaxis,
-				overchunkaxis,
+				overtileaxis,
 		)
 		
-	if overchunkaxis == histaxis:
+	if overtileaxis == histaxis:
 		raise IndexError(
-				f"Overchunk and histogram axis need to be different, but are "
-				f"{overchunkaxis} and {histaxis}.",
-				overchunkaxis,
+				f"Overtile and histogram axis need to be different, but are "
+				f"{overtileaxis} and {histaxis}.",
+				overtileaxis,
 				histaxis,
 		)
 		
@@ -191,11 +191,11 @@ def probabilisticAdder(
 				positionweights.dtype,
 		)
 		
-	if np.issubdtype(chunkoffsets.dtype, np.floating):
+	if np.issubdtype(tileoffsets.dtype, np.floating):
 		raise TypeError(
-				f"chunkoffsets can only be of integer dtypes, but found "
-				f"{chunkoffsets.dtype}.",
-				chunkoffsets.dtype,
+				f"tileoffsets can only be of integer dtypes, but found "
+				f"{tileoffsets.dtype}.",
+				tileoffsets.dtype,
 		)
 		
 	expectedshape = (tosum.shape[reduceaxis],)
@@ -207,14 +207,14 @@ def probabilisticAdder(
 				expectedshape,
 				positionweights.shape
 		)
-	expectedshape = (tosum.shape[overchunkaxis],)
-	if chunkoffsets.shape != expectedshape:
+	expectedshape = (tosum.shape[overtileaxis],)
+	if tileoffsets.shape != expectedshape:
 		raise ValueError(
-				f"chunkoffsets should be 1D array with shape "
+				f"tileoffsets should be 1D array with shape "
 				f"{expectedshape}, but shape "
-				f"{chunkoffsets.shape} was found.",
+				f"{tileoffsets.shape} was found.",
 				expectedshape,
-				chunkoffsets.shape
+				tileoffsets.shape
 		)
 	if disablereducecarry and (not positionweightsonehot):
 		raise ValueError(
@@ -229,15 +229,15 @@ def probabilisticAdder(
 	#use them to mark bin values 1 to N.
 	#We expect given histograms and posweights to be symmetric and
 	#use absolut().
-	#Similar computation for chunks, but there we only need a maximum.
-	#Because that weight is as long as the overchunkax, but we do not
+	#Similar computation for tiles, but there we only need a maximum.
+	#Because that weight is as long as the overtileax, but we do not
 	#care about that axis.
 	positionweightsabs = np.absolute(positionweights, dtype=positionweights.dtype)
 	posweightssum = positionweightsabs.sum(
 			axis=None,
 			keepdims=False,
 	)
-	chunkoffsetmax = chunkoffsets.max(
+	tileoffsetmax = tileoffsets.max(
 			axis=None,
 			keepdims=False,
 	)
@@ -249,7 +249,7 @@ def probabilisticAdder(
 	#In one-hot, we know that the hist axis represents how often a value
 	#along reduceaxis occurs. And the total number of occurences is limited.
 	#We get the maxmum reslt, if all occurences happen at the maximum posweight.
-	#The chunk weight is simply an offset applied on top of positionweights.
+	#The tile weight is simply an offset applied on top of positionweights.
 	if positionweightsonehot:
 		posweightssummax = positionweightsabs.max(
 				axis=None,
@@ -259,12 +259,12 @@ def probabilisticAdder(
 		posweightssummax = posweightssum
 
 	posweightssum = int(round(posweightssum))
-	chunkoffsetmax = int(round(chunkoffsetmax))
+	tileoffsetmax = int(round(tileoffsetmax))
 	posweightssummax = int(round(posweightssummax))
-	newhistlen = oldhistlen * (posweightssummax + chunkoffsetmax)
+	newhistlen = oldhistlen * (posweightssummax + tileoffsetmax)
 	newhistlen = int(round(newhistlen))
 	reducelen = tosum.shape[reduceaxis]
-	chunkcount = tosum.shape[overchunkaxis]
+	tilecount = tosum.shape[overtileaxis]
 	
 	#Number of bins in new hist axis
 	newbincount = histlenToBincount(histlen=newhistlen)
@@ -278,9 +278,9 @@ def probabilisticAdder(
 			padupper=True,
 	)
 	
-	#Also detect whether all chunkoffsets are the same
-	chunkoffsetmin = chunkoffsets.min(axis=None, keepdims=False)
-	allchunkssame = np.all(chunkoffsetmax == chunkoffsetmin)
+	#Also detect whether all tileoffsets are the same
+	tileoffsetmin = tileoffsets.min(axis=None, keepdims=False)
+	alltilessame = np.all(tileoffsetmax == tileoffsetmin)
 	
 	#Prepare result shape, where the reduce axis has only lenth 1 and the
 	#length of the target axis was updated.
@@ -306,19 +306,19 @@ def probabilisticAdder(
 	#If the axis we add from is onehot, we should not use binomial, because
 	#it will reagrd all combinatiosn of multiple bits along reduceaxis being
 	#set.
-	#Also works only, if the chunksweights are all the same, because
+	#Also works only, if the tilesweights are all the same, because
 	#we use accessors to shift the binomial distribution and that does
-	#not broadcast a chunk ax.
+	#not broadcast a tile ax.
 	#We try to test the more computational expensive crieteria in the
 	#end and only if previous criteria passed.
 	
 	#Only do, if we can have ultiple values along reduceax set and if
 	#ther is a primitive old histogram with only values 0 and 1 and a sum
 	#of 1 over all values and if such optimizations are allowed
-	dobinomial = bool((not positionweightsonehot) and (oldbincount <= 2) and allchunkssame and allowoptim)
+	dobinomial = bool((not positionweightsonehot) and (oldbincount <= 2) and alltilessame and allowoptim)
 	
-	#Check if posweights are all the same. We do not care about chunkoffsets,
-	#as each chunk gets a separate histogram.
+	#Check if posweights are all the same. We do not care about tileoffsets,
+	#as each tile gets a separate histogram.
 	if dobinomial:
 		posweightmin = positionweights.min(axis=None, keepdims=False)
 		posweightmax = positionweights.max(axis=None, keepdims=False)
@@ -374,7 +374,7 @@ def probabilisticAdder(
 		#Compute the value if a first set value in histogram.
 		#We only know hof often the values occur, but posweight can
 		#change that to a different value in histogram.
-		thisposweightval = int(posweightmin + chunkoffsetmin)
+		thisposweightval = int(posweightmin + tileoffsetmin)
 		#Index of the first digit we write: the 0 value.
 		#It sits at the center of the hist.
 		firstwrittenidx = int(newhistlen)
@@ -424,20 +424,20 @@ def probabilisticAdder(
 				padupper=True,
 		)
 		
-		chunkvalues = chunkoffsets
-		chunkvalues = padAxes(
-				value=chunkvalues,
-				innertoaxis=overchunkaxis,
+		tilevalues = tileoffsets
+		tilevalues = padAxes(
+				value=tilevalues,
+				innertoaxis=overtileaxis,
 				referencendim=tosum.ndim,
 				padlower=False,
 				padupper=True,
 		)
 		
-		#positionweights and chunkoffsets are added when bein interpreted.
+		#positionweights and tileoffsets are added when bein interpreted.
 		#Stick to some dtype noting value of digits.
-		totalvalues = np.add(reducevalues, chunkvalues, dtype=oldhistvalues.dtype)
+		totalvalues = np.add(reducevalues, tilevalues, dtype=oldhistvalues.dtype)
 		#effectivehistvalue could add even more dims to totalvalues
-		#depending on whether histaxis sits before or after chunks.
+		#depending on whether histaxis sits before or after tiles.
 		totalvalues = np.multiply(totalvalues, oldhistvalues, dtype=oldhistvalues.dtype)
 		
 		newhistvalues = getHistValues(
@@ -600,32 +600,32 @@ def probabilisticAdder(
 				)
 				
 				#On the innermost side, we now even need to iterate over
-				#chunks, which usually can just be treated in parallel by np,
-				#but that cannot be made, if chunkoffsets are used.
-				#Because different chunkoffsets yield different shifts
+				#tiles, which usually can just be treated in parallel by np,
+				#but that cannot be made, if tileoffsets are used.
+				#Because different tileoffsets yield different shifts
 				#and shifts are implemented as accessors and these cannot
-				#be made different over chunkax.
-				#Depending on the case, we generate single chunkoffsets and
-				#accessors or we don't care and access all chunks in parallel.
-				if allchunkssame:
-					chunkaccessors = (
+				#be made different over tileax.
+				#Depending on the case, we generate single tileoffsets and
+				#accessors or we don't care and access all tiles in parallel.
+				if alltilessame:
+					tileaccessors = (
 							dict(
 									start=None,
 									stop=None,
 									step=None,
 							),
 					)
-					chunkoffsetiter = (chunkoffsetmin,)
+					tileoffsetiter = (tileoffsetmin,)
 				else:
-					chunkaccessors = range(chunkcount)
-					chunkaccessors = (dict(start=i, stop=i+1, step=1) for i in chunkaccessors)
-					chunkoffsetiter = iter(chunkoffsets)
+					tileaccessors = range(tilecount)
+					tileaccessors = (dict(start=i, stop=i+1, step=1) for i in tileaccessors)
+					tileoffsetiter = iter(tileoffsets)
 					
-				for chunkaccessor, thischunkoffset in zip(chunkaccessors, chunkoffsetiter):
-					chunkaccessor = getValueAlongAxis(
+				for tileaccessor, thistileoffset in zip(tileaccessors, tileoffsetiter):
+					tileaccessor = getValueAlongAxis(
 							value=None,
-							axis=overchunkaxis,
-							**chunkaccessor,
+							axis=overtileaxis,
+							**tileaccessor,
 					)
 				
 					#Get a rolled version of the target. Adding +1 means that the
@@ -637,8 +637,8 @@ def probabilisticAdder(
 					#We check that in the end.
 					#Positionweights start from 1 and their value can increase
 					#the added value and hence the shift.
-					#The chunkoffsets are simply applied on top.
-					shift = (oldhistvalues[histidx] * (positionweights[redidx] + thischunkoffset))
+					#The tileoffsets are simply applied on top.
+					shift = (oldhistvalues[histidx] * (positionweights[redidx] + thistileoffset))
 					#oldhistvalues is an nparray with padded upper dims,
 					#where the lowest dim is the hist axis. So we might
 					#have some dummy dims dn remove them.
@@ -757,7 +757,7 @@ def probabilisticAdder(
 									axis=histaxis,
 							)
 							#The actually ignored digits
-							ignoreddigits = target[targetaccessorignored][chunkaccessor]
+							ignoreddigits = target[targetaccessorignored][tileaccessor]
 							#Combination of all the digits, which would be 
 							#shifted out resulting in their total value.
 							sumofignoreddigits = np.sum(
@@ -775,9 +775,9 @@ def probabilisticAdder(
 						#old hist axes.
 						if checkexception or placeinlast:
 							if dostatisticdummy:
-								weightedsumofignoreddigits = sumofignoreddigits & tosumval[chunkaccessor]
+								weightedsumofignoreddigits = sumofignoreddigits & tosumval[tileaccessor]
 							else:
-								weightedsumofignoreddigits = sumofignoreddigits * tosumval[chunkaccessor]
+								weightedsumofignoreddigits = sumofignoreddigits * tosumval[tileaccessor]
 						else:
 							weightedsumofignoreddigits = None
 
@@ -844,7 +844,7 @@ def probabilisticAdder(
 						sumcorrection=None
 					
 					#Now write shifted versions of target into innertarget.
-					#Always work only on chunks we gathered the shift for.
+					#Always work only on tiles we gathered the shift for.
 					if dostatisticdummy:
 						#First the more complex case, where the histogram
 						#which is moved by shift is more than just a set
@@ -856,15 +856,15 @@ def probabilisticAdder(
 							#regarded if the value we add up right now is actually
 							#set.
 							if ((newbincount - abs(shift)) > 0):
-								innertarget[innertargetaccesorupper][chunkaccessor] |= \
-										target[innertargetaccessorlower][chunkaccessor] & tosumval[chunkaccessor]
+								innertarget[innertargetaccesorupper][tileaccessor] |= \
+										target[innertargetaccessorlower][tileaccessor] & tosumval[tileaccessor]
 							
 							#Now also write the digits which have been shifted
 							#out into one clip digit. In practice, sumofignoreddigits
 							#is always None, but this is what one would need to
 							#write shifted-out digits inot final ones.
 							if (weightedsumofignoreddigits is not None) and (innertargetaccessorclipdigit is not None):
-								innertarget[innertargetaccessorclipdigit][chunkaccessor] |= \
+								innertarget[innertargetaccessorclipdigit][tileaccessor] |= \
 										weightedsumofignoreddigits
 										
 						#In the simple case, the histogram which is shifted has
@@ -874,8 +874,8 @@ def probabilisticAdder(
 						#The innertargetaccessor was already updated to
 						#access a single bin only.
 						else:
-							innertarget[innertargetaccesorupper][chunkaccessor] |= \
-									tosumval[chunkaccessor]
+							innertarget[innertargetaccesorupper][tileaccessor] |= \
+									tosumval[tileaccessor]
 						
 					#Compute with probabilities just like with bits.
 					else:
@@ -885,7 +885,7 @@ def probabilisticAdder(
 							#we shift out hist power and it does not make
 							#it to innertarget. If there is a correction factor,
 							#we apply it to still have a sum-1 histogram.
-							targetsumcorrected = target[innertargetaccessorlower][chunkaccessor]
+							targetsumcorrected = target[innertargetaccessorlower][tileaccessor]
 							if sumcorrection is not None:
 								#If you divide by 0 here, it means that all
 								#histogram power is in the shifted-out digits.
@@ -897,21 +897,21 @@ def probabilisticAdder(
 										dtype=target.dtype,
 								)
 							if ((newbincount - abs(shift)) > 0):
-								innertarget[innertargetaccesorupper][chunkaccessor] += \
-										targetsumcorrected * tosumval[chunkaccessor]
+								innertarget[innertargetaccesorupper][tileaccessor] += \
+										targetsumcorrected * tosumval[tileaccessor]
 										
 							if (weightedsumofignoreddigits is not None) and (innertargetaccessorclipdigit is not None):
-								innertarget[innertargetaccessorclipdigit][chunkaccessor] += \
+								innertarget[innertargetaccessorclipdigit][tileaccessor] += \
 										weightedsumofignoreddigits
 										
 						else:
-							innertarget[innertargetaccesorupper][chunkaccessor] += \
-									tosumval[chunkaccessor]
+							innertarget[innertargetaccesorupper][tileaccessor] += \
+									tosumval[tileaccessor]
 			
 			#All ist values of the current reduceax have been combined into
 			#innertarget. This is basically our new target.
-			#nnertarget includes all chunks, so we can again work on all
-			#chunks in parallel.
+			#nnertarget includes all tiles, so we can again work on all
+			#tiles in parallel.
 			#Only do this, if we don't disable updating the target to
 			#read updated version in the next iteration. Otherwise, we
 			#keep the result within inn ertarget and let it read the
@@ -1160,7 +1160,7 @@ def quantizeClipScaleValues(
 		synchronous, but is also needed to validate *mergevalues*, to
 		round *cliplimit* as described in `clipping` and to be able to
 		interpret *cliplimitfixed* as relative to a fullscale, to give
-		even residual chunks (see `chunks`) the same clip rule.
+		even residual tiles (see `tiles`) the same clip rule.
 		
 	mergevalues : `int`, `float`, `None`
 		Parameterizes quantization.
@@ -1388,8 +1388,8 @@ def quantizeClipScaleValues(
 
 		#First maybe apply scale and clip to get less quant error.
 		#DO not clip with the single oldhistlen, but rather with the
-		#maxhistvalue, which can regard limited histograms along chunks.
-		#Still, the same cliplimitfixed is used for all chunks to enable
+		#maxhistvalue, which can regard limited histograms along tiles.
+		#Still, the same cliplimitfixed is used for all tiles to enable
 		#to combine them properly later.
 		#Do not actually multiply values, but rather only do the corresponding
 		#clip resulting from a cliplimitfixed, because the the spacing between
@@ -1563,14 +1563,14 @@ def reduceSum(
 		dostatistic,
 		dostatisticdummy,
 		maxhistvalue,
-		chunksizes=None,
+		tilesizes=None,
 		docreatehistaxis=False,
 		mergevalues=None,
 		cliplimitstddev=None,
 		cliplimitfixed=None,
 		mergeeffortmodel=None,
 		positionweightsonehot=None,
-		chunkoffsetsteps=None,
+		tileoffsetsteps=None,
 		disablereducecarries=None,
 		allowoptim=True,
 		selfcheckindummy=True,
@@ -1635,10 +1635,10 @@ def reduceSum(
 		See `maxhistvalue`. This is updated just like *tosum*. Could be ommitted,
 		but some features then might raise exceptions.
 			
-	chunksizes : `None`, ((`tuple` or `list`) of (`int` or `None`)), optional
-		The length of one chunk to chunk each axis. `None` disables chunking
+	tilesizes : `None`, ((`tuple` or `list`) of (`int` or `None`)), optional
+		The length of one tile to tile each axis. `None` disables tiling
 		and reduces a full axis. `None` can be given once for all axes or
-		for single axes. The default uses no chunking.
+		for single axes. The default uses no tiling.
 		
 	docreatehistaxis : `bool`, optional
 		If set, *histaxis* is added before doing anything else. Needed in the
@@ -1681,7 +1681,7 @@ def reduceSum(
 		:math:`log_{2}` of the number of bins and sums these values over
 		histograms.
 		
-		Note that residual chunks (see `chunks`) will possibly give a smaller
+		Note that residual tiles (see `tiles`) will possibly give a smaller
 		number of levels and hence smaller effort.
 		
 		The default adds no merge-effort model.
@@ -1702,23 +1702,23 @@ def reduceSum(
 			  
 		The default uses `None` on each axis.
 			  
-	chunkoffsetsteps : ((`tuple` or `list`) of (`int` or `None`)), `None`, optional
-		Used to derive one *chunkoffsets* for each reduced axis.
+	tileoffsetsteps : ((`tuple` or `list`) of (`int` or `None`)), `None`, optional
+		Used to derive one *tileoffsets* for each reduced axis.
 		See `probabilisticAdder`.
-		These are added on *positionweights* depending on where in the chunk
-		we are during summation. Ignored, if *chunksize* is alrge enough to
-		leave us with just a single chunk.
+		These are added on *positionweights* depending on where in the tile
+		we are during summation. Ignored, if *tilesize* is alrge enough to
+		leave us with just a single tile.
 		`None` is the same like passing `None` for all axes.
 		
 		For each axis:
 			
-			- `None` results in using just zeros as *chunkoffsets*. The feature
+			- `None` results in using just zeros as *tileoffsets*. The feature
 			  is disabled.
 			  
 			- `int` is a stepwidth for constructing a `numpy.arange` of correct
 			  length with this stepwidth. See `probabilisticAdder`. If you
-			  chunked a histogram axis, pass the chunksize here when adding the
-			  chunks later up.
+			  tiled a histogram axis, pass the tilesize here when adding the
+			  tiles later up.
 			  
 		The default uses `None` on each axis.
 			  
@@ -1755,14 +1755,14 @@ def reduceSum(
 		- If *stataxis*, *histaxis* or any *reduceaxes* are not distinct.
 		
 		- If *positionweights*, *positionweightsonehot*, *disablereducecarries*,
-		  *chunkoffsetsteps* or *chunksizes* are not `None`, but have different
+		  *tileoffsetsteps* or *tilesizes* are not `None`, but have different
 		  `len` compared to *reduceaxes*.
 	
 	`ValueError`
 		
 		- If *cliplimitstddev* and *cliplimitfixed* are enabled.
 		
-		- If a *chunksizes* element is smaller than *1*.
+		- If a *tilesizes* element is smaller than *1*.
 		
 		- If a *positionweights* element is `numpy.ndarray` of bad shape.
 		
@@ -1770,7 +1770,7 @@ def reduceSum(
 		
 	`RuntimeError`
 	
-		- If broadcasted chunkoffsets and positionweights are not broadcastable
+		- If broadcasted tileoffsets and positionweights are not broadcastable
 		  to *maxhistvalue*.
 		  
 		- If *dostatistic* found an out-of-bound result compared to
@@ -1782,9 +1782,9 @@ def reduceSum(
 	-------
 	target : `numpy.ndarray`
 		Reduced array. Same dtype as *tosum*. *histaxis* was possibly added,
-		or at least grew. *reduceaxes* vanished, except if they were chunked
-		using *chunksize*. In that case, they are as long as the minimum
-		chunk count required to not loose bins.
+		or at least grew. *reduceaxes* vanished, except if they were tiled
+		using *tilesize*. In that case, they are as long as the minimum
+		tile count required to not loose bins.
 		
 	mergeeffort : `float`, `None`
 		If *mergeeffortmodel* was given, this is the mergeeffort.
@@ -1853,8 +1853,8 @@ def reduceSum(
 			(positionweights, "positionweights",),
 			(positionweightsonehot, "positionweightsonehot",),
 			(disablereducecarries, "disablereducecarries",),
-			(chunkoffsetsteps, "chunkoffsetsteps",),
-			(chunksizes, "chunksizes",),
+			(tileoffsetsteps, "tileoffsetsteps",),
+			(tilesizes, "tilesizes",),
 	)
 	normalizevalues = list()
 	for normalizevalue, normalizename in normalizecases:
@@ -1873,7 +1873,7 @@ def reduceSum(
 		
 	#Apply values, which have been checked for length and where None was
 	#repalced by repeated value.
-	positionweights, positionweightsonehot, disablereducecarries, chunkoffsetsteps, chunksizes = \
+	positionweights, positionweightsonehot, disablereducecarries, tileoffsetsteps, tilesizes = \
 			normalizevalues
 		
 	if histaxis == stataxis:
@@ -1914,7 +1914,7 @@ def reduceSum(
 	#of axes and remember what to squeeze for the end.
 	target = tosum
 	squeezedims = list()
-	for thisreduceax, thisposweights, thisposweightonehot, thisdisablereducecarry, thischunkoffsetstep, thischunksize in zip(reduceaxes, positionweights, positionweightsonehot, disablereducecarries, chunkoffsetsteps, chunksizes):
+	for thisreduceax, thisposweights, thisposweightonehot, thisdisablereducecarry, thistileoffsetstep, thistilesize in zip(reduceaxes, positionweights, positionweightsonehot, disablereducecarries, tileoffsetsteps, tilesizes):
 		#Load histogram axis. Will possibly be updated, if we add other
 		#axes.
 		thishistax = histaxis
@@ -1951,58 +1951,58 @@ def reduceSum(
 				(thisposweights[0] in knownposweightswithargs):
 			thisposweights, thispositionweightsarg = thisposweights
 		
-		#The axis over which we sum is now replaced by an axis over chunks
-		#and one inside chunks. We remember the added axis idx and whether
-		#we used only a dummy chunk. Dummy chunks will be removed towards
+		#The axis over which we sum is now replaced by an axis over tiles
+		#and one inside tiles. We remember the added axis idx and whether
+		#we used only a dummy tile. Dummy tiles will be removed towards
 		#the very end.
-		overchunkax = thisreduceax
-		insidechunkax = thisreduceax + 1
-		maxchunksize = tosum.shape[thisreduceax]
+		overtileax = thisreduceax
+		insidetileax = thisreduceax + 1
+		maxtilesize = tosum.shape[thisreduceax]
 		
 		#The index of the histogram axis possibly changed, because we
 		#added another axis.
-		if thishistax >= insidechunkax:
+		if thishistax >= insidetileax:
 			thishistax = thishistax + 1
 			
 		#Now actually introduce the new axis
-		if thischunksize is None:
-			#One chunk size for each reduced dimension.
-			thischunksize = maxchunksize
-			#And there is only a single chunk
-			thischunkcount = 1
-			#The chunk dim will be removed towards the end.
-			dopurgeoverchunkaxis = True
-			#Add the overchunkax by expanding dims, which costs no memory.
-			#So all items to reduce are then in the innerchunkaxis following
-			#the overchunkaxis having length 1.
-			target = np.expand_dims(target, axis=overchunkax)
+		if thistilesize is None:
+			#One tile size for each reduced dimension.
+			thistilesize = maxtilesize
+			#And there is only a single tile
+			thistilecount = 1
+			#The tile dim will be removed towards the end.
+			dopurgeovertileaxis = True
+			#Add the overtileax by expanding dims, which costs no memory.
+			#So all items to reduce are then in the innertileaxis following
+			#the overtileaxis having length 1.
+			target = np.expand_dims(target, axis=overtileax)
 			#Keep maxvalue synchronous if given
 			if maxhistvalue is not None:
-				maxhistvalue = np.expand_dims(maxhistvalue, axis=overchunkax)
+				maxhistvalue = np.expand_dims(maxhistvalue, axis=overtileax)
 		else:
-			#Some actual chunksize we will use. Enforce type and shape.
-			thischunksize = int(thischunksize)
-			if thischunksize < 1:
+			#Some actual tilesize we will use. Enforce type and shape.
+			thistilesize = int(thistilesize)
+			if thistilesize < 1:
 				raise ValueError(
-						f"Got chunksize {thischunksize}, but only "
+						f"Got tilesize {thistilesize}, but only "
 						f"values of at least 1 are allowed.",
-						thischunksize,
+						thistilesize,
 				)
-			#Limit chunksize to have all data in a single chunk
-			thischunksize = min(thischunksize, maxchunksize)
+			#Limit tilesize to have all data in a single tile
+			thistilesize = min(thistilesize, maxtilesize)
 				
-			#THe overchunkaxis is then kept in the end.
-			dopurgeoverchunkaxis = False
+			#THe overtileaxis is then kept in the end.
+			dopurgeovertileaxis = False
 			
-			#Reshape underlying array to inlcude inside chunk ax.
+			#Reshape underlying array to inlcude inside tile ax.
 			#The reduce ax is removed and replaced by automatically found
-			#overchunk dim and the used-set inside-chunk dim.
+			#overtile dim and the used-set inside-tile dim.
 			#Skipped, because this one needs all elements to split exactly
-			#into the chunks.
+			#into the tiles.
 			#target = np.reshape(target, (
 			#		*target.shape[:thisreduceax],
 			#		-1,
-			#		thischunksize,
+			#		thistilesize,
 			#		*target.shape[thisreduceax+1:],
 			#))
 			
@@ -2011,15 +2011,15 @@ def reduceSum(
 			#updates faster.
 			inneridx = np.arange(
 					start=0,
-					stop=thischunksize,
+					stop=thistilesize,
 					step=1,
 					dtype="uint",
 			)
 			inneridx = np.expand_dims(inneridx, axis=0)
 			overidx = np.arange(
 					start=0,
-					stop=maxchunksize,
-					step=thischunksize,
+					stop=maxtilesize,
+					step=thistilesize,
 					dtype="uint",
 			)
 			overidx = np.expand_dims(overidx, axis=-1)
@@ -2028,16 +2028,16 @@ def reduceSum(
 			totalidx = inneridx + overidx
 			
 			#So far, everything is exactly as with np.reshape. But if
-			#we do not have all chunks full, we get elems in totalidx,
+			#we do not have all tiles full, we get elems in totalidx,
 			#which would do out-of-bound index accesses. And these
 			#are prevented now by masking them.
-			totalidxbad = totalidx >= maxchunksize
+			totalidxbad = totalidx >= maxtilesize
 			
 			#Set bad indices to something which works.
 			np.putmask(totalidx, mask=totalidxbad, values=0)
 			
 			#The indices access from reduce axis and replace reudce ax
-			#by outer and inn er chunk ax
+			#by outer and inn er tile ax
 			totalaccessor = (slice(None, None, None),) * thisreduceax
 			totalaccessor = (*totalaccessor, totalidx,)
 			
@@ -2050,10 +2050,10 @@ def reduceSum(
 			
 			#Create a padded version of the mask being index compatible
 			#with target
-			#the current mask already includes over and inner chunk axis
+			#the current mask already includes over and inner tile axis
 			totalidxbadpadded = padAxes(
 					value=totalidxbad,
-					innertoaxis=insidechunkax,
+					innertoaxis=insidetileax,
 					referencendim=target.ndim,
 					padlower=False,
 					padupper=True,
@@ -2093,8 +2093,8 @@ def reduceSum(
 						where=totalidxbadpadded,
 				)
 			
-			#Find chunkcount from what the target can hold.
-			thischunkcount = target.shape[overchunkax]
+			#Find tilecount from what the target can hold.
+			thistilecount = target.shape[overtileax]
 		
 		#Preprocess the position weights. None or "same" needs to create an
 		#all-1 vector, "bits" needs to create a power of two vector.
@@ -2102,7 +2102,7 @@ def reduceSum(
 		#some index dtype.
 		#We do not weight along histaxis, as this is a historgam and basta,
 		#but we rather weight along the axis we reduce.
-		positionweightslen = thischunksize
+		positionweightslen = thistilesize
 		positionweightsdtype = "int"
 		positionweightsarehist = False
 		#None or same weights all entries equally. One can tune which same
@@ -2158,23 +2158,23 @@ def reduceSum(
 			thisposweightonehot = bool(thisposweightonehot)
 			
 		#positionoffsets can also be given and a stepsize is transalted
-		#into an arange synchronous to chunksize. The sum of chunkoffset and
-		#chunked posweights then yields unchunked posweights.
-		#If thischunkcount is 1, we essentially also need no offset steps.
-		#There is only a single chunk and we weight it with posweights only
+		#into an arange synchronous to tilesize. The sum of tileoffset and
+		#tiled posweights then yields untiled posweights.
+		#If thistilecount is 1, we essentially also need no offset steps.
+		#There is only a single tile and we weight it with posweights only
 		#then.
-		if (thischunkoffsetstep is not None) and (thischunkcount > 1):
-			thischunkoffsets = getHistValues(
-					bincount=thischunkcount,
+		if (thistileoffsetstep is not None) and (thistilecount > 1):
+			thistileoffsets = getHistValues(
+					bincount=thistilecount,
 					axis=0,
 					ndim=1,
 					padlower=False,
 					padupper=True,
 			)
-			np.multiply(thischunkoffsets, thischunkoffsetstep, out=thischunkoffsets)
+			np.multiply(thistileoffsets, thistileoffsetstep, out=thistileoffsets)
 		else:
-			thischunkoffsets = np.zeros(
-					shape=(thischunkcount,),
+			thistileoffsets = np.zeros(
+					shape=(thistilecount,),
 					dtype=thisposweights.dtype,
 			)
 			
@@ -2187,14 +2187,14 @@ def reduceSum(
 		#Expand posweights and offsets to be broadcastable with target
 		thisposweightspadded = padAxes(
 				value=thisposweights,
-				innertoaxis=insidechunkax,
+				innertoaxis=insidetileax,
 				referencendim=targetuint.ndim,
 				padlower=False,
 				padupper=True,
 		)
-		thischunkoffsetspadded = padAxes(
-				value=thischunkoffsets,
-				innertoaxis=overchunkax,
+		thistileoffsetspadded = padAxes(
+				value=thistileoffsets,
+				innertoaxis=overtileax,
 				referencendim=targetuint.ndim,
 				padlower=False,
 				padupper=True,
@@ -2202,7 +2202,7 @@ def reduceSum(
 		
 		#Compute the combined posweights on our own. Will need that in
 		#uint computation or for maxhistval
-		combinedweights = thisposweightspadded + thischunkoffsetspadded
+		combinedweights = thisposweightspadded + thistileoffsetspadded
 		
 		#Update the running
 		#fullscale result. Stat axis should be 1 here.
@@ -2210,7 +2210,7 @@ def reduceSum(
 			
 			#If we add another, older histogram axis, it already has
 			#length 1 along reduce axis. There is then  no point in
-			#using positionweights. In that case, we use only chunkoffset.
+			#using positionweights. In that case, we use only tileoffset.
 			
 			#Give maxhistvalue and combinedweights same ndim
 			combinedweightsmaxhistvalue = combinedweights
@@ -2222,17 +2222,17 @@ def reduceSum(
 					padupper=False,
 			)
 				
-			#If maxhistlen has an axis, which is the reduced inside chunk
+			#If maxhistlen has an axis, which is the reduced inside tile
 			#axis, which has length 1 (because it used to be a hist axis)
 			#and if it is weighted with hist (as one should do with an
 			#old hist axis), we assume that all positionweights are 1.
 			#There is no weighting along the old hist axis, because it is
 			#uint already.
-			combinedweightsaxlen = combinedweightsmaxhistvalue.shape[insidechunkax]
-			maxhistvalueaxlen = maxhistvalue.shape[insidechunkax]
+			combinedweightsaxlen = combinedweightsmaxhistvalue.shape[insidetileax]
+			maxhistvalueaxlen = maxhistvalue.shape[insidetileax]
 			if (combinedweightsaxlen != maxhistvalueaxlen) and (maxhistvalueaxlen == 1) and positionweightsarehist:
 				combinedweightsmaxhistvalue = np.add(
-						thischunkoffsetspadded,
+						thistileoffsetspadded,
 						1,
 						dtype=combinedweightsmaxhistvalue.dtype,
 				)
@@ -2247,25 +2247,25 @@ def reduceSum(
 					padupper=False,
 			)
 			combinedweightsaxlen = (
-					combinedweightsmaxhistvalue.shape[overchunkax],
-					combinedweightsmaxhistvalue.shape[insidechunkax],
+					combinedweightsmaxhistvalue.shape[overtileax],
+					combinedweightsmaxhistvalue.shape[insidetileax],
 			)
 			maxhistvalueaxlen = (
-					maxhistvalue.shape[overchunkax],
-					maxhistvalue.shape[insidechunkax],
+					maxhistvalue.shape[overtileax],
+					maxhistvalue.shape[insidetileax],
 			)
 			if combinedweightsaxlen != maxhistvalueaxlen:
 				raise RuntimeError(
-						f"Broadcasted positionweights and chunkoffsets "
+						f"Broadcasted positionweights and tileoffsets "
 						f"have lengths {combinedweightsaxlen} over and "
-						f"inside chunks, but maxhistvalue has "
+						f"inside tiles, but maxhistvalue has "
 						f"{maxhistvalueaxlen}."
 						f"They have to be equal.",
 						combinedweightsaxlen,
 						maxhistvalueaxlen,
 				)
 			
-			#Weight along over/inside chunk ax with correct posweights.
+			#Weight along over/inside tile ax with correct posweights.
 			maxsubresults = maxhistvalue * combinedweightsmaxhistvalue
 			#The histograms are always symmetric around a 0 value and need
 			#to be capable of holding both negative and positive magnitudes.
@@ -2280,13 +2280,13 @@ def reduceSum(
 			if thisposweightonehot:
 				maxhistvalue = np.max(
 						maxsubresults,
-						axis=insidechunkax,
+						axis=insidetileax,
 						keepdims=True,
 				)
 			else:
 				maxhistvalue = np.sum(
 						maxsubresults,
-						axis=insidechunkax,
+						axis=insidetileax,
 						keepdims=True,
 						dtype=maxhistvalue.dtype,
 						)
@@ -2295,13 +2295,13 @@ def reduceSum(
 		if calledadder:
 			target = probabilisticAdder(
 					tosum=target,
-					reduceaxis=insidechunkax,
+					reduceaxis=insidetileax,
 					histaxis=thishistax,
 					positionweights=thisposweights,
 					positionweightsonehot=thisposweightonehot,
 					disablereducecarry=thisdisablereducecarry,
-					chunkoffsets=thischunkoffsets,
-					overchunkaxis=overchunkax,
+					tileoffsets=thistileoffsets,
+					overtileaxis=overtileax,
 					dostatisticdummy=dostatisticdummy,
 					allowoptim=allowoptim,
 			)
@@ -2329,7 +2329,7 @@ def reduceSum(
 			subresults = targetuint * combinedweights
 			targetuint = np.sum(
 					subresults,
-					axis=insidechunkax,
+					axis=insidetileax,
 					keepdims=True,
 					dtype=targetuint.dtype,
 			)
@@ -2371,18 +2371,18 @@ def reduceSum(
 			else:
 				target = targetuint
 			
-		#Remove the insidechunkax, which now should be 1. Again keep
+		#Remove the insidetileax, which now should be 1. Again keep
 		#maxhistvalue in same shape
-		target = np.squeeze(target, axis=insidechunkax)
+		target = np.squeeze(target, axis=insidetileax)
 		if maxhistvalue is not None:
-			maxhistvalue = np.squeeze(maxhistvalue, axis=insidechunkax)
-		#The overchunkax is kept and removed at the very end of all loop
+			maxhistvalue = np.squeeze(maxhistvalue, axis=insidetileax)
+		#The overtileax is kept and removed at the very end of all loop
 		#iterations, otherwise the target shape changes between iterations.
-		if dopurgeoverchunkaxis:
-			squeezedims.append(overchunkax)
+		if dopurgeovertileaxis:
+			squeezedims.append(overtileax)
 			
 	#Check if our hist axis is now maybe too large, because we added some
-	#residual chunks with hist entries which were never used, but which were
+	#residual tiles with hist entries which were never used, but which were
 	#present to place e.g. two full and one residual hist in one array.
 	#Do this now and not at the very end, because e.g. mergevalues already
 	#wants to know some final bincount to e.g. compute the number of bins
@@ -2514,7 +2514,7 @@ def reduceSum(
 		#In uint computation, we do not have a histlen.
 		#Use oldhistlen and not maxhistvalue, becaue we need the same
 		#value for all scaled elements, not a different scale for each
-		#chunk possibly.
+		#tile possibly.
 		np.clip(newlimit, a_min=1, a_max=oldhistlen, out=newlimit)
 		
 		#Compute factor by which values are scaled up. Everything refers
@@ -2555,7 +2555,7 @@ def reduceSum(
 	mergeeffort = None
 	if mergeeffortmodel is not None:
 		#First get a number of Levels our output supports. Get it from
-		#maxhistvalue, as that one regards that for residual chunks, an
+		#maxhistvalue, as that one regards that for residual tiles, an
 		#ADC is allowed to support less levels.
 		#maxhistvalue has a dummy stat and hist axis, which is exactly
 		#what we need.
@@ -2565,7 +2565,7 @@ def reduceSum(
 		#much power the ADC needs and then sums the ADC runs up.
 		mergeeffort = float(mergeeffortmodel(bincount).item())
 		
-	#Now possibly remove overchunkax, which were added as dummies.
+	#Now possibly remove overtileax, which were added as dummies.
 	#Keep maxhistvalue synchronous
 	target = np.squeeze(target, axis=tuple(squeezedims))
 	if maxhistvalue is not None:
@@ -3786,7 +3786,7 @@ def generateSimulationOperands(
 			#which has been summed to 1, now as dim along macs.
 			#Tiling along the nummacs dim does not make sense, as that would
 			#only repeat probabilities we keep the same. We still have
-			#to do it, as later operations might chunk this axis and then
+			#to do it, as later operations might tile this axis and then
 			#things become different.
 			operand = np.tile(operand, reps=(1, nummacs, 1))
 			

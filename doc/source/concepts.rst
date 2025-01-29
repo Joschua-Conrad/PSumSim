@@ -164,21 +164,21 @@ leave you with even less bins than specified by quantization.
 This means: you do not need as many-levels ADC, if your cliplimit
 tells you that few bins/levels are enough.
 
-.. _chunks:
+.. _tiles:
 
-Chunks
+Tiles
 ------
-Often, it is necessary to tile/chunk numbers to sum up into chunks, sum and
-possibly quantize each chunk individually and then to combine these results.
+Often, it is necessary to tile numbers to sum up into tiles, sum and
+possibly quantize each tile individually and then to combine these results.
 PSumSim supports this. That way, one can simulate how common analog MVM
-hardware quantizes a sum over a MAC chunk and then again quantizes the total
+hardware quantizes a sum over a MAC tile and then again quantizes the total
 result.
 
 Imagine you
-have 128 MAC operations and chunking the MAC axis into computing 50, 50 and
+have 128 MAC operations and tiling the MAC axis into computing 50, 50 and
 28 operations. A *[128,]* array is split into *[3, 50]*, which is 150 and
-not 128 elements. But some elements in the last of the three chunks
-can never be set. Hence, this chunk is called a *residual chunk*.
+not 128 elements. But some elements in the last of the three tiles
+can never be set. Hence, this tile is called a *residual tile*.
 
 
 .. _maxhistvalue:
@@ -192,8 +192,8 @@ for the used datatype and some `int` is always used. The histogram axis here
 always has length 1.`
 
 Still, this is not a single value, but instead some `numpy.array`. Because some
-elements in residual chunks (see `chunks`) can never be set and cannot
-contribute anything to the  full-scale. So the *maxhistvalue* in this chunk is
+elements in residual tiles (see `tiles`) can never be set and cannot
+contribute anything to the  full-scale. So the *maxhistvalue* in this tile is
 smaller.
 
 During a regular simulation `reduceSum` will keep track of this.
