@@ -2,7 +2,7 @@ Welcome to PSumSim's documentation!
 ===================================
 This framework helps with understanding how partial sums are quantized
 in matrix-vector multipliers (MVMs). You can setup a MVM application including
-quantization and tiling/tiling and can trace value probabilities, fullscales,
+quantization and scaling/tiling and can trace value probabilities, fullscales,
 best cliplimits and much more. Everything done in plain `numpy`.
 
 .. toctree::
