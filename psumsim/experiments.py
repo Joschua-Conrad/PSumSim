@@ -1199,6 +1199,10 @@ def runAllExperiments(
 				#Makes print with progabr look ok
 				redirect_stdout=True,
 				prefix="Collected: ",
+				#Line offset 0 and None (default) should be the same, but
+				#if the default is used here, the upper progbar writes
+				#over bash prompt.
+				line_offset = 0,
 		)
 	else:
 		submittedbar = None
