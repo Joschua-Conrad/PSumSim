@@ -1200,6 +1200,9 @@ def runAllExperiments(
 				redirect_stdout=True,
 				prefix="Collected: ",
 		)
+		#Print one empty line, otherwise the submittedbar (the upper one)
+		#writes over bash prompt.
+		submittedbar.stdout.write("\n")
 	else:
 		submittedbar = None
 		finishedbar = None
