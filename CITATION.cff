@@ -90,11 +90,14 @@ preferred-citation:
     - Partial-Sum
     - Quantization
     - Stochastic Modeling
+  date-published: 2025-06-27
   year: 2025
+  doi: 10.1109/ISCAS56072.2025.11043442
+  url: https://ieeexplore.ieee.org/document/11043442
   conference:
     name: '2025 IEEE International Symposium on Circuits and Systems (ISCAS)'
     city: London
     country: GB
     date-start: 2025-05-25
-    date-end: 2025-06-28
+    date-end: 2025-05-28
 
