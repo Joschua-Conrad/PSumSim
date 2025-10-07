@@ -70,9 +70,7 @@ Time is precious and you just want a one-liner to run in a Linux or MAC shell?
 Download the code, open a commandline in the directory with downloaded files
 and run
 ```bash
-python3 -m pip install --upgrade pip && \
-python3 -m pip install --upgrade setuptools virtualenv wheel && \
-python3 -m virtualenv venv && \
+python3 -m venv venv && \
 . venv/bin/activate && \
 python3 -m pip install --editable ".[docs,test]" && \
 sphinx-build -b html -E doc/source doc/build && \
@@ -81,10 +79,8 @@ deactivate
 ```
 
 This installs everything, runs tests and builds the documentation website
-in *docs/build*. You need Python3 to be installed already. Packages
-*virtualenv*, *pip*, *setuptools* and *wheel* are installed or upgraded
-system- or user-wide. But PSumSim and its dependencies are installed
-isolated into a folder *venv*.
+in *docs/build*. You need Python3 to be installed already. PSumSim and
+its dependencies are installed isolated into a folder *venv*.
 
 (readmeinstall)=
 ## How to Install
@@ -101,12 +97,6 @@ Also consider using a
 [virtual environment](https://docs.python.org/3/library/venv.html) to install
 packages into. This prevents any possible package-version clashes with things
 you already have installed.
-
-Also consider running
-```bash
-python3 -m pip install --upgrade pip setuptools wheel
-```
-to upgrade the Python package-managing before installing PSumSim.
 
 ## How to Use
 After installing, there are several things provided by PSumSim.
