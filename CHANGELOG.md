@@ -14,6 +14,8 @@ are collected.
   {any}`runAllExperiments` now support passing a process-creation
   method suggested by the caller, such that everything is implemented
   as suggested by {any}`multiprocessing.get_context`.
+  
+- Added support for [PyInstaller](https://pyinstaller.org/en/stable/).
 
 ## 0.1.0
 - Replaced term *chunk* with *tile*, as that is what the literature uses

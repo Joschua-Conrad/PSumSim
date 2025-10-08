@@ -53,6 +53,10 @@ test = [
 	"pytest-subtests",
 ]
 
+pyinstaller = [
+	"pyinstaller",
+]
+
 [project.urls]
 Repository = "https://github.com/Joschua-Conrad/PSumSim"
 Download = "https://github.com/Joschua-Conrad/PSumSim/archive/refs/heads/main.zip"
@@ -60,6 +64,14 @@ Download = "https://github.com/Joschua-Conrad/PSumSim/archive/refs/heads/main.zi
 [project.scripts]
 psumsim = "psumsim.experiments:main"
 psumsim_test = "psumsim.main_test:mainTest"
+
+#PyInstaller uses this to discover hooks, which tell it about
+#e.g. which package data-files to include.
+#https://pyinstaller.org/en/stable/hooks.html#how-a-hook-is-loaded
+#How to use in pyproject.toml instead of setup.cfg
+#https://github.com/orgs/pyinstaller/discussions/6904
+[project.entry-points.pyinstaller40]
+hook-dirs = "psumsim.pyinstaller.entrypoints:getHookDirs"
 
 [tool.setuptools]
 packages = ["psumsim"]

@@ -154,6 +154,11 @@ autodoc_default_options = {
 		#Base classes are listed
 		'show-inheritance':True,
 }
+
+#This file cannot be imported due to - sign in module name.
+#But we need to keep that sign, to make the file being recognized as hook file.
+#So we exclude it from imports done by autosummary.
+autodoc_mock_imports = ["psumsim.pyinstaller.hook-psumsim"]
 	
 # __init__ of a class is treated as special function and is visible as its own,
 # because we enabled private members in autodoc. If this would be false, the

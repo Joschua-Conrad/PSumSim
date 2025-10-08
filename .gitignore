@@ -1,10 +1,13 @@
 #Created during install
 /psumsim.egg-info
 #Created during import
-/psumsim/__pycache__
+/**/__pycache__
 #Test Products
 /.pytest_cache
 #Results from commandline
 /psumsimresults*.json
 #Virtual env
 /venv
+#Products of PyInstaller
+/pyinstaller
+/psumsim.spec

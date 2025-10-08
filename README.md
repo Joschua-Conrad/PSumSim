@@ -156,6 +156,18 @@ is to run a specific test case and exit immediately if that one fails,
 as run e.g. by `psumsim_test -x -k "test_optimumClippingCriterion"` for the
 test {any}`test_optimumClippingCriterion`.
 
+### PyInstaller
+This package supports being used with [PyInstaller](https://pyinstaller.org/en/stable/), to pack it into
+a single executable, without depending on having Python installed.
+{py:mod}`pyinstaller` adds support for that.
+To test this, use
+```bash
+python3 -m pip install --editable ".[pyinstaller]"
+pyinstaller --distpath pyinstaller/dist --workpath ./pyinstaller/build --onedir --clean --name psumsim ./psumsim/__main__.py
+```
+which creates the exectuable *./pyinstaller/dist/psumsim/psumsim*.
+Packaging into *--onefile* instead of *--onedir* currently does not work.
+
 (readmeacknowledge)=
 ## Acknowledgment
 This work was funded by the *German National Science Foundation (DFG)* under
