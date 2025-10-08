@@ -6,6 +6,8 @@ updated, if docs build and tests pass. The version number of the upcoming
 release is always also listed here and changes for this upcoming version
 are collected.
 
+## 0.1.2
+
 ## 0.1.1
 - {any}`getMaybeDefaultMpContext` now handles the method to create new
   processes with {any}`multiprocessing`. This solves a test warning in
