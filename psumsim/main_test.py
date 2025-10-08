@@ -21,11 +21,11 @@ def mainTest(argv=None, forwardsysexit=True):
 	"""Invoke `pytest.main`.
 	
 	This adapts and then later restores the working directory using
-	`os.chdir` to work in the repository directy some levels above the
+	`os.chdir` to work in the repository directory some levels above the
 	path of this sourcefile.
 	
-	This must be defined an an own separate module, which does not import
-	:py:mod:`psumsim`. Otherwise, that already import the progressbar, that
+	This must be defined in an own separate module, which does not import
+	:py:mod:`psumsim`. Otherwise, that already imports the progressbar, that
 	memorizes *stdout* file descriptors, `pytest` then makes them invalid to capture
 	*stdout* and the progressbar crashes. So we here in this module only import
 	`pytest`, `pytest.main` finds :py:mod:`psumsim` and imports it AFTER having
