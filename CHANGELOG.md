@@ -7,6 +7,13 @@ release is always also listed here and changes for this upcoming version
 are collected.
 
 ## 0.1.1
+- {any}`getMaybeDefaultMpContext` now handles the method to create new
+  processes with {any}`multiprocessing`. This solves a test warning in
+  newer Python versions and possible deadlocks due to usage of *fork*
+  method and multiple thread in the same process. {py:func}`main` and
+  {any}`runAllExperiments` now support passing a process-creation
+  method suggested by the caller, such that everything is implemented
+  as suggested by {any}`multiprocessing.get_context`.
 
 ## 0.1.0
 - Replaced term *chunk* with *tile*, as that is what the literature uses
