@@ -999,6 +999,37 @@ def singleRunWorker(rundescription, sqnrreferencereturn):
 	
 	return result
 
+def getMaybeDefaultMpContext(usermpc=None):
+	"""Get default or custom method to create new processes.
+	
+	See `multiprocessing.get_context`. With this function, one can define
+	which method (e.g. *spawn* or *fork*) is used to create new processes.
+	The function defined here specifies a default which can be overridden
+	by an argument.
+	
+	The default is *spawn*, as `runAllExperiments` also creates threads, and
+	that generates warnings if *fork* is used.
+	
+	Parameters
+	----------
+	usermpc : See `multiprocessing.get_context`, `None`, optional
+		If a user-given context is given, pass it. If not, create a *spawn*
+		context.
+		
+	Returns
+	-------
+	mpc : See `multiprocessing.get_context`
+		The effective context to use.
+	
+	"""
+	
+	if usermpc is None:
+		mpc = multiprocessing.get_context(method="spawn")
+	else:
+		mpc = usermpc
+	
+	return mpc
+
 def runAllExperiments(
 			runreduced,
 			runquiet,
@@ -1009,6 +1040,7 @@ def runAllExperiments(
 			processes,
 			aggressive,
 			progressfp,
+			usermpc=None,
 	):
 	"""Run all experiments from `runIter`.
 	
@@ -1077,6 +1109,11 @@ def runAllExperiments(
 		If given, progress information is written to this stream instead of
 		to `sys.stdout`. Ignored if *runquiet* is set. Use this for setups,
 		where you don't have access to th commandline output, as in clusters.
+		
+	usermpc : See `getMaybeDefaultMpContext`, `None`, optional
+		Forwarded to `getMaybeDefaultMpContext` to get the correct method of
+		creating subprocesses using `multiprocessing`. Default: `None`,
+		which lets `getMaybeDefaultMpContext` set a suitable default.
 
 	Raises
 	------
@@ -1090,6 +1127,9 @@ def runAllExperiments(
 		*runkeys*.
 
 	"""
+	
+	#Get context for creating subprocesses
+	mpc = getMaybeDefaultMpContext(usermpc=usermpc)
 	
 	#If that is the case, remember class attributes, clear them and re-append
 	#less values
@@ -1244,7 +1284,7 @@ def runAllExperiments(
 	
 	#Will run experiments in parallel in a worker pool
 	if not skipworkerpool:
-		workerpool = multiprocessing.Pool(processes=processes)
+		workerpool = mpc.Pool(processes=processes)
 		
 	#There are no aggressive runs with only a single worker. A single worker
 	#will perform run after run.
@@ -1640,7 +1680,7 @@ Is ignored if runnames are already given."""
 	return parser
 
 
-def main(args=None):
+def main(args=None, usermpc=None):
 	"""Calling this package as a script or using the entrypoint.
 	
 	This connects `getArgParser` and `runAllExperiments`.
@@ -1654,11 +1694,23 @@ def main(args=None):
 		Commandline arguments to parse. Passed to
 		`argparse.ArgumentParser.parse_args`. The default is `None`, which
 		uses `sys.argv`.
+		
+	usermpc : See `getMaybeDefaultMpContext`, `None`, optional
+		Forwarded to `runAllExperiments` to get the correct method of
+		creating subprocesses using `multiprocessing`. Default: `None`,
+		which lets `getMaybeDefaultMpContext` set a suitable default.
 
 	"""
 	
 	#Needed to make multiprocess with pyinstaller work
 	#https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
+	#Do not use usermpc here, as the multiprocessing module states:
+	#
+	#One needs to call this function straight after the
+	#if __name__ == '__main__' line of the main module. 
+	#
+	#and usermpc and getMaybeDefaultMpContext could already invoke
+	#the multiprocessing module.
 	multiprocessing.freeze_support()
 	
 	parser = getArgParser()
@@ -1710,6 +1762,7 @@ def main(args=None):
 				 processes=argvalues.jobs,
 				 aggressive=argvalues.aggressive,
 				 progressfp=progressfilefp,
+				 usermpc=usermpc,
 		 )
 	finally:
 		jsonfp.close()
