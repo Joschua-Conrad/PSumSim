@@ -49,8 +49,9 @@ docs = [
 ]
 
 test = [
-	"pytest",
-	"pytest-subtests",
+	"pytest >= 9.0.0",
+	#pytest-subtests has been merged into vanilla pytest 9.0.
+	#"pytest-subtests",
 ]
 
 pyinstaller = [
@@ -100,6 +101,8 @@ testpaths = "psumsim/*"
 tmp_path_retention_policy = "all"
 #If a test with expected failure succeeds, the test fails
 xfail_strict = true
-required_plugins = [
-	"pytest-subtests",
-]
+#Since pytest 9.0, subtests are part of vanilla pytest.
+#No need to require the plugin.
+#required_plugins = [
+#	"pytest-subtests",
+#]

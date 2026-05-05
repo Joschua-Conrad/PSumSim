@@ -7,6 +7,8 @@ release is always also listed here and changes for this upcoming version
 are collected.
 
 ## 0.1.2
+- Using now *pytest>=9.0.0*. That now includes the former plugin
+  *pytest-subtests*, which can now be removed.
 
 ## 0.1.1
 - {any}`getMaybeDefaultMpContext` now handles the method to create new
