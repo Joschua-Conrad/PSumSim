@@ -66,7 +66,10 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		
 		#Compute function on best dtype numpy determines and only for digits
 		#where we need it.
-		ret = np.arcsin(x, where=good)
+		#Pass default for out=None, because bad digits are left uninitialized and
+		#will be overwritten below, and we want exactly that, but not passing
+		#out gives a warning.
+		ret = np.arcsin(x, where=good, out=None)
 		np.divide(ret, np.pi, where=good, out=ret)
 		np.add(ret, 0.5, where=good, out=ret)
 
@@ -158,7 +161,10 @@ class sinusoidal_gen(sp.stats.rv_continuous):
 		
 		#Compute function on best dtype numpy determines and only for digits
 		#where we need it.
-		ret = np.subtract(x, 0.5, where=good)
+		#Pass default for out=None, because bad digits are left uninitialized and
+		#will be overwritten below, and we want exactly that, but not passing
+		#out gives a warning.
+		ret = np.subtract(x, 0.5, where=good, out=None)
 		np.multiply(ret, np.pi, out=ret, where=good)
 		np.sin(ret, out=ret, where=good)
 		

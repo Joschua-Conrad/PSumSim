@@ -9,6 +9,9 @@ are collected.
 ## 0.1.2
 - Using now *pytest>=9.0.0*. That now includes the former plugin
   *pytest-subtests*, which can now be removed.
+  
+- Suppressed warnings in {any}`rand` about {any}`numpy` methods not
+  getting an {code}`out=None` argument.
 
 ## 0.1.1
 - {any}`getMaybeDefaultMpContext` now handles the method to create new
