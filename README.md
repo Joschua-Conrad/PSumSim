@@ -20,9 +20,13 @@ the published paper:
 	author = {Conrad, Joschua and Wilhelmstätter, Simon and Mandry, Holger and Kässer, Paul and Abdelaal, Ahmed and Asthana, Rohan and Belagiannis, Vasileios and Ortmanns, Maurits},
 	title = {PSumSim: A Simulator for Partial-Sum Quantization in Analog Matrix-Vector Multipliers},
 	booktitle = {2025 IEEE International Symposium on Circuits and Systems {(ISCAS)}},
+	date = {2025-06-27},
 	eventtitle = {2025 IEEE International Symposium on Circuits and Systems {(ISCAS)}},
 	publisher = {IEEE},
 	location = {Londong, GB},
+	pages={1-5},
+	doi={10.1109/ISCAS56072.2025.11043442},
+	url={https://ieeexplore.ieee.org/document/11043442},
 }
 ```
 
@@ -173,13 +177,3 @@ Packaging into *--onefile* instead of *--onedir* currently does not work.
 This work was funded by the *German National Science Foundation (DFG)* under
 grant number *BE 7212/7-1 | OR 245/19-1*. Furthermore, the authors acknowledge
 support by the state of Baden-Württemberg through bwHPC.
-
-## ToDos for Publishing After Review
-
-- [X] Update license
-- [X] Fill [How to Cite](#how-to-cite)
-- [ ] Add *date-published*, *doi*, *url* to *CITATION.cff*
-- [ ] Add *date*, *doi*, *url*, *pages* to *CITATION.bib* and *README.md*
-- [X] Make repository public
-- [X] Update repository link in manuscript
-- [X] Remove *Information for Reviewers*
